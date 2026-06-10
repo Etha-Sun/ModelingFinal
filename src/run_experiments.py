@@ -759,6 +759,7 @@ def plot_robustness(rows: list[dict[str, object]], fig_dir: Path) -> None:
         ax.set_title(DATASET_LABELS[dataset])
         ax.set_xlabel("outlier rate")
         ax.set_ylabel("MMD")
+        ax.set_ylim(bottom=0.0)
         ax.grid(alpha=0.25)
         ax.legend(fontsize=8)
     fig.savefig(fig_dir / "fig8_robustness.png", dpi=240)
