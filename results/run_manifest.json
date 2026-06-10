@@ -1,9 +1,9 @@
 {
-  "created_at": "2026-06-10T13:11:55.380672+00:00",
+  "created_at": "2026-06-10T15:27:38.287852+00:00",
   "config": {
-    "n_train": 1200,
-    "n_test": 900,
-    "n_generate": 900,
+    "n_train": 2000,
+    "n_test": 2000,
+    "n_generate": 2000,
     "seeds": [
       0,
       1,
@@ -12,9 +12,10 @@
     "vae_epochs": 320,
     "ddpm_epochs": 2500,
     "ddpm_steps": 100,
-    "device": "cpu"
+    "device": "cpu",
+    "official_seed_base": 20260525
   },
-  "elapsed_sec": 144.21638870239258,
+  "elapsed_sec": 178.07641696929932,
   "python": "3.12.7",
   "platform": "macOS-15.3.1-arm64-arm-64bit",
   "numpy": "1.26.4",
@@ -22,5 +23,6 @@
   "sklearn": "1.5.1",
   "torch": "2.5.1",
   "matplotlib": "3.9.2",
-  "notes": "Data are generated from fixed synthetic mechanisms because no TA data files were present in the project directory."
+  "data_source": "distribution2d_gen/generate_data.py",
+  "notes": "Data generation matches the provided course generator. Each repeated run uses official_seed_base + 10 * seed for train and +1 for test."
 }

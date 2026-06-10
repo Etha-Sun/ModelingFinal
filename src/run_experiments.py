@@ -25,7 +25,6 @@ import sklearn
 import torch
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.spatial import cKDTree
-from sklearn.datasets import make_moons
 from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 from sklearn.model_selection import train_test_split
@@ -60,26 +59,28 @@ PALETTE = {
 
 @dataclass
 class ExperimentConfig:
-    n_train: int = 1200
-    n_test: int = 900
-    n_generate: int = 900
+    n_train: int = 2000
+    n_test: int = 2000
+    n_generate: int = 2000
     seeds: tuple[int, ...] = (0, 1, 2)
     vae_epochs: int = 320
     ddpm_epochs: int = 420
     ddpm_steps: int = 80
     device: str = "cpu"
+    official_seed_base: int = 20260525
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=Path("final_project/results"))
-    parser.add_argument("--n-train", type=int, default=1200)
-    parser.add_argument("--n-test", type=int, default=900)
-    parser.add_argument("--n-generate", type=int, default=900)
+    parser.add_argument("--n-train", type=int, default=2000)
+    parser.add_argument("--n-test", type=int, default=2000)
+    parser.add_argument("--n-generate", type=int, default=2000)
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     parser.add_argument("--vae-epochs", type=int, default=320)
     parser.add_argument("--ddpm-epochs", type=int, default=420)
     parser.add_argument("--ddpm-steps", type=int, default=80)
+    parser.add_argument("--official-seed-base", type=int, default=20260525)
     parser.add_argument("--quick", action="store_true")
     return parser.parse_args()
 
@@ -91,57 +92,60 @@ def set_seed(seed: int) -> None:
 
 
 def make_gaussian_mixture(n: int, rng: np.random.Generator) -> np.ndarray:
-    centers = np.array(
-        [
-            [-2.4, -1.8],
-            [-1.0, 1.8],
-            [1.1, -1.5],
-            [2.3, 1.5],
-            [0.0, 0.0],
-        ],
-        dtype=np.float64,
-    )
-    probs = np.array([0.20, 0.18, 0.22, 0.18, 0.22])
-    covs = [
-        np.array([[0.10, 0.03], [0.03, 0.18]]),
-        np.array([[0.16, -0.04], [-0.04, 0.10]]),
-        np.array([[0.13, 0.05], [0.05, 0.12]]),
-        np.array([[0.18, -0.02], [-0.02, 0.15]]),
-        np.array([[0.08, 0.00], [0.00, 0.08]]),
-    ]
-    comp = rng.choice(len(centers), size=n, p=probs)
-    x = np.zeros((n, 2), dtype=np.float64)
-    for k in range(len(centers)):
-        idx = comp == k
-        if idx.any():
-            x[idx] = rng.multivariate_normal(centers[k], covs[k], size=idx.sum())
-    return x
+    num_modes = 8
+    radius = 2.6
+    noise = 0.16
+
+    angles = np.linspace(0.0, 2.0 * np.pi, num_modes, endpoint=False)
+    centers = np.stack([np.cos(angles), np.sin(angles)], axis=1) * radius
+    mode_ids = rng.integers(0, num_modes, size=n)
+    return centers[mode_ids] + rng.normal(0.0, noise, size=(n, 2))
 
 
 def make_ring(n: int, rng: np.random.Generator) -> np.ndarray:
-    theta = rng.uniform(0, 2 * np.pi, size=n)
-    radius = rng.normal(2.0, 0.10, size=n)
-    x = np.c_[radius * np.cos(theta), radius * np.sin(theta)]
-    x += rng.normal(0, 0.025, size=x.shape)
-    return x
+    radius = 2.2
+    radial_noise = 0.13
+    tangential_noise = 0.03
+
+    theta = rng.uniform(0.0, 2.0 * np.pi, size=n)
+    r = radius + rng.normal(0.0, radial_noise, size=n)
+    points = np.stack([r * np.cos(theta), r * np.sin(theta)], axis=1)
+    return points + rng.normal(0.0, tangential_noise, size=(n, 2))
 
 
 def make_two_moons(n: int, rng: np.random.Generator) -> np.ndarray:
-    seed = int(rng.integers(0, 2**31 - 1))
-    x, _ = make_moons(n_samples=n, noise=0.055, random_state=seed)
-    x[:, 0] = 2.1 * x[:, 0] - 1.0
-    x[:, 1] = 2.2 * x[:, 1] - 0.2
-    return x.astype(np.float64)
+    noise = 0.08
+    n_upper = n // 2
+    n_lower = n - n_upper
+
+    theta_upper = rng.uniform(0.0, np.pi, size=n_upper)
+    upper = np.stack([np.cos(theta_upper), np.sin(theta_upper)], axis=1)
+
+    theta_lower = rng.uniform(0.0, np.pi, size=n_lower)
+    lower = np.stack([1.0 - np.cos(theta_lower), 0.5 - np.sin(theta_lower)], axis=1)
+
+    points = np.concatenate([upper, lower], axis=0)
+    points += rng.normal(0.0, noise, size=points.shape)
+    points *= 1.75
+    points -= np.array([0.9, 0.25])
+    rng.shuffle(points, axis=0)
+    return points
 
 
 def make_spiral(n: int, rng: np.random.Generator) -> np.ndarray:
-    arm = rng.integers(0, 2, size=n)
-    t = rng.uniform(0.35, 3.7 * np.pi, size=n)
-    r = 0.18 * t
-    angle = t + arm * np.pi
-    x = np.c_[r * np.cos(angle), r * np.sin(angle)]
-    x += rng.normal(0, 0.065, size=x.shape)
-    return x
+    noise = 0.08
+    n_arm1 = n // 2
+    n_arm2 = n - n_arm1
+
+    def arm(m: int, phase: float) -> np.ndarray:
+        t = rng.uniform(0.25, 4.0 * np.pi, size=m)
+        r = 0.22 * t
+        return np.stack([r * np.cos(t + phase), r * np.sin(t + phase)], axis=1)
+
+    points = np.concatenate([arm(n_arm1, 0.0), arm(n_arm2, np.pi)], axis=0)
+    points += rng.normal(0.0, noise, size=points.shape)
+    rng.shuffle(points, axis=0)
+    return points
 
 
 GENERATORS: dict[str, Callable[[int, np.random.Generator], np.ndarray]] = {
@@ -150,6 +154,21 @@ GENERATORS: dict[str, Callable[[int, np.random.Generator], np.ndarray]] = {
     "two_moons": make_two_moons,
     "spiral": make_spiral,
 }
+
+
+def make_official_split(n_per_class: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    """Match distribution2d_gen/generate_data.py exactly for one split."""
+    rng = np.random.default_rng(seed)
+    xs = []
+    ys = []
+    for label, name in enumerate(DATASETS):
+        points = GENERATORS[name](n_per_class, rng).astype(np.float32)
+        xs.append(points)
+        ys.append(np.full(n_per_class, label, dtype=np.int64))
+    x = np.concatenate(xs, axis=0)
+    y = np.concatenate(ys, axis=0)
+    order = rng.permutation(len(y))
+    return x[order], y[order]
 
 
 def standardize(train: np.ndarray, test: np.ndarray) -> tuple[np.ndarray, np.ndarray, dict[str, list[float]]]:
@@ -168,10 +187,13 @@ def inverse_standardize(x: np.ndarray, stats: dict[str, list[float]]) -> np.ndar
     return x * std + mean
 
 
-def generate_dataset(name: str, seed: int, n_train: int, n_test: int) -> dict[str, object]:
-    rng = np.random.default_rng(seed)
-    raw_train = GENERATORS[name](n_train, rng)
-    raw_test = GENERATORS[name](n_test, rng)
+def generate_dataset(name: str, seed: int, n_train: int, n_test: int, official_seed_base: int) -> dict[str, object]:
+    split_seed = official_seed_base + 10 * seed
+    train_all, train_label = make_official_split(n_train, split_seed)
+    test_all, test_label = make_official_split(n_test, split_seed + 1)
+    label = DATASETS.index(name)
+    raw_train = train_all[train_label == label]
+    raw_test = test_all[test_label == label]
     train, test, stats = standardize(raw_train, raw_test)
     return {
         "name": name,
@@ -704,7 +726,7 @@ def robustness_experiment(config: ExperimentConfig, out_dir: Path) -> list[dict[
     for seed in config.seeds:
         rng = np.random.default_rng(seed + 2026)
         for dataset in DATASETS:
-            clean = generate_dataset(dataset, seed + 10, config.n_train, config.n_test)
+            clean = generate_dataset(dataset, seed + 10, config.n_train, config.n_test, config.official_seed_base)
             test = clean["test"]
             for rate in [0.0, 0.03, 0.08, 0.15]:
                 train = np.array(clean["train"], copy=True)
@@ -904,6 +926,7 @@ def main() -> None:
         vae_epochs=90 if args.quick else args.vae_epochs,
         ddpm_epochs=120 if args.quick else args.ddpm_epochs,
         ddpm_steps=40 if args.quick else args.ddpm_steps,
+        official_seed_base=args.official_seed_base,
     )
     out_dir = args.out_dir
     fig_dir = out_dir / "figures"
@@ -922,7 +945,7 @@ def main() -> None:
     for dataset_name in DATASETS:
         meta[dataset_name] = {}
         for seed in config.seeds:
-            data = generate_dataset(dataset_name, seed, config.n_train, config.n_test)
+            data = generate_dataset(dataset_name, seed, config.n_train, config.n_test, config.official_seed_base)
             train = data["train"]
             test = data["test"]
             train_sets_by_seed[seed][dataset_name] = train
@@ -1001,7 +1024,8 @@ def main() -> None:
         "sklearn": sklearn.__version__,
         "torch": torch.__version__,
         "matplotlib": matplotlib.__version__,
-        "notes": "Data are generated from fixed synthetic mechanisms because no TA data files were present in the project directory.",
+        "data_source": "distribution2d_gen/generate_data.py",
+        "notes": "Data generation matches the provided course generator. Each repeated run uses official_seed_base + 10 * seed for train and +1 for test.",
     }
     save_json(out_dir / "run_manifest.json", manifest)
 

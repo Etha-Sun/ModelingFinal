@@ -11,6 +11,7 @@ report/preview/
 # Intermediate experiment checks
 results_quick/
 results_quick2/
+results_official_quick/
 results_ddpm_long_check/
 
 # Python caches

@@ -1,0 +1,28 @@
+{
+  "seed": 20260525,
+  "class_names": [
+    "gaussian_mixture",
+    "ring",
+    "two_moons",
+    "spiral"
+  ],
+  "label_mapping": {
+    "0": "gaussian_mixture",
+    "1": "ring",
+    "2": "two_moons",
+    "3": "spiral"
+  },
+  "train_shape": [
+    8000,
+    2
+  ],
+  "test_shape": [
+    8000,
+    2
+  ],
+  "hidden_test_shape": [
+    8000,
+    2
+  ],
+  "coordinate_range_note": "Samples are designed to lie mostly in [-4, 4] x [-4, 4]."
+}

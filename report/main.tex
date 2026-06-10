@@ -31,7 +31,7 @@
 \begin{abstract}
 本报告选择期末大作业的“二维分布生成建模”选题，研究不同生成模型在 Gaussian Mixture、Ring、Two Moons 和 Spiral 四类二维复杂分布上的建模能力。二维数据虽然维度低，但具有多峰性、闭合支撑、弯曲流形和螺旋结构等典型难点，能够直接暴露生成模型的模式覆盖、过平滑、离流形采样和评价指标不一致等问题。本文从数学建模角度将任务表述为学习未知分布 \(p_c(\mathbf{x})\) 并生成新样本的问题，比较核密度估计（KDE）、高斯混合模型（GMM）、变分自编码器（VAE）和去噪扩散概率模型（DDPM）四类方法。
 
-实验使用固定随机种子生成四类训练集和测试集，每类训练样本 1200 个、测试样本 900 个，并在 3 个随机种子上重复训练与采样。评价指标包括负对数似然（NLL）、最大均值差异（MMD）、切片 Wasserstein 距离（SWD）、Precision、Coverage 和二维网格支撑覆盖率。结果表明，在当前二维合成数据和样本量设置下，经典密度模型是很强的基线：GMM 在 Gaussian Mixture 和 Two Moons 上取得最低 MMD，KDE 在 Ring 上取得最低 MMD 与最高 Coverage；DDPM 在 Spiral 上取得最低 MMD，说明逐步去噪机制对高度弯曲支撑具有优势，但其 Precision 仍低于 KDE/GMM。VAE 训练稳定，但在四类数据上均出现明显过平滑。本文进一步完成条件 DDPM、超参数扫描和四类模型的异常点鲁棒性实验，说明生成建模不能只依赖单一“先进模型”，而应结合数据几何结构、模型假设和多指标评价进行判断。
+实验使用题目提供的 \texttt{distribution2d\_gen/generate\_data.py} 生成四类训练集和测试集，每类训练样本 2000 个、测试样本 2000 个，并在 3 个随机种子上重复训练与采样。评价指标包括负对数似然（NLL）、最大均值差异（MMD）、切片 Wasserstein 距离（SWD）、Precision、Coverage 和二维网格支撑覆盖率。结果表明，在官方二维生成器和当前样本量设置下，KDE 是最强的整体基线：它在四类分布上均取得最低 MMD、最低 SWD 和最高 Coverage；GMM 在 Gaussian Mixture、Ring 和 Two Moons 上具有较高 Precision 与较低 NLL，但在 Spiral 上受椭圆高斯局部假设限制；DDPM 能生成可辨认的弯曲结构，但没有在主指标上压过 KDE；VAE 训练稳定但明显过平滑。本文进一步完成条件 DDPM、超参数扫描和四类模型的异常点鲁棒性实验，说明生成建模不能只依赖单一“先进模型”，而应结合数据几何结构、模型假设和多指标评价进行判断。
 \end{abstract}
 
 \textbf{关键词：} 生成模型；二维分布；核密度估计；高斯混合模型；变分自编码器；扩散模型；MMD；Wasserstein 距离
@@ -64,7 +64,7 @@ D_c=\{\mathbf{x}^{(c)}_i\}_{i=1}^{N_c},\quad \mathbf{x}^{(c)}_i\in\mathbb{R}^2,\
 
 本文完成内容如下：
 \begin{enumerate}
-    \item 构造四类二维分布数据集，并对其几何结构和建模难点进行分析；
+    \item 使用题目提供的数据生成代码构造四类二维分布数据集，并对其几何结构和建模难点进行分析；
     \item 实现 KDE、GMM、VAE 和 DDPM 四类生成模型；
     \item 使用 MMD、切片 Wasserstein 距离、Precision、Coverage、支撑覆盖率和 NLL 评价生成质量；
     \item 对 KDE 带宽和 GMM 组分数进行超参数扫描；
@@ -93,12 +93,12 @@ DDPM 通过逐步加噪和逐步去噪学习生成过程\cite{sohl2015diffusion,
 
 \subsection{数据生成与预处理}
 
-由于项目目录中没有发现助教提供的二维分布数据文件，本文根据题目要求使用固定机制生成四类数据，并在运行清单中记录这一点。因此，本文结论严格对应本文生成机制下的二维合成数据；若后续获得官方数据，应使用同一实验管线重新运行。每类数据包含 1200 个训练样本和 900 个测试样本。四类分布的构造如下：
+本文使用题目提供的二维分布生成代码 \texttt{distribution2d\_gen/generate\_data.py} 作为数据来源。官方脚本默认每类生成 2000 个训练样本、2000 个测试样本和 2000 个隐藏测试样本，并保存 \texttt{train.npy}、\texttt{test.npy}、标签文件和 \texttt{metadata.json}。主实验使用训练集拟合模型、测试集评价生成质量；为估计随机性，实验管线保持官方生成机制不变，仅改变随机种子重复 3 次。四类分布的构造如下：
 \begin{itemize}
-    \item Gaussian Mixture：由 5 个不同均值和协方差的二维高斯成分混合而成；
-    \item Ring：半径约为 2 的闭合圆环，并加入小幅径向和位置噪声；
-    \item Two Moons：使用双月牙结构并加入高斯扰动；
-    \item Spiral：双臂螺旋结构，半径随角度增长，并加入小幅噪声。
+    \item Gaussian Mixture：8 个等角度分布在半径 2.6 圆周上的高斯模式，噪声标准差为 0.16；
+    \item Ring：半径约为 2.2 的闭合圆环，带径向噪声和小幅切向扰动；
+    \item Two Moons：上下两条月牙曲线，加入高斯噪声后整体缩放和平移；
+    \item Spiral：双臂螺旋结构，半径随角度增长，并加入高斯噪声。
 \end{itemize}
 
 所有模型使用训练集均值和标准差进行标准化：
@@ -121,7 +121,7 @@ DDPM 通过逐步加噪和逐步去噪学习生成过程\cite{sohl2015diffusion,
     \item 训练样本和测试样本均独立同分布地来自未知真实分布 \(p_c(\mathbf{x})\)；
     \item 四类分布之间相互独立，主实验分别为每类数据训练一个无条件模型；
     \item 训练集只用于拟合模型与选择超参数，测试集只用于最终评价；
-    \item 生成样本数与测试样本数相同，均为 900；
+    \item 生成样本数与测试样本数相同，均为每类 2000；
     \item 每个模型在随机种子 \(0,1,2\) 上重复运行，并报告均值和标准差。
 \end{enumerate}
 
@@ -243,7 +243,7 @@ Precision 衡量生成样本是否落在真实数据邻域中，Coverage 衡量�
 
 \subsection{实验设置}
 
-主实验比较 KDE、GMM、VAE 和 DDPM 四类模型。每个模型在四类数据上分别训练，并在 3 个随机种子上重复。每次实验生成 900 个新样本，与 900 个测试样本进行比较。所有结果均由脚本 \texttt{final\_project/src/run\_experiments.py} 生成。
+主实验比较 KDE、GMM、VAE 和 DDPM 四类模型。每个模型在四类数据上分别训练，并在 3 个随机种子上重复。每次实验生成 2000 个新样本，与 2000 个测试样本进行比较。所有结果均由脚本 \texttt{final\_project/src/run\_experiments.py} 生成。
 
 \begin{table}[H]
 \centering
@@ -283,11 +283,11 @@ DDPM & 100 扩散步，MLP 噪声网络 & AdamW, 2500 epochs & 隐式采样 \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{../results/figures/fig1_hero_grid.pdf}
-\caption{四类模型在四类二维分布上的生成样本。灰色点为测试样本，蓝色点为生成样本。KDE/GMM 在当前低维任务中是强基线；VAE 明显过平滑；DDPM 长训练后在 Spiral 上能更好跟随螺旋支撑。}
+\caption{四类模型在四类二维分布上的生成样本。灰色点为测试样本，蓝色点为生成样本。KDE/GMM 在当前低维任务中是强基线；VAE 明显过平滑；DDPM 能生成可辨认的弯曲结构，但局部贴合仍不如 KDE 稳定。}
 \label{fig:hero}
 \end{figure}
 
-图 \ref{fig:hero} 直观展示了模型差异。KDE 与 GMM 在 Gaussian Mixture、Ring 和 Two Moons 上生成样本与真实样本高度重合；VAE 往往把样本填到低密度区域，例如 Ring 的中心区域和 Two Moons 两条月牙之间；DDPM 在长训练后能改善这一问题，并在 Spiral 上取得最低 MMD，但其 Precision 仍低于 KDE/GMM，说明它能覆盖整体结构，却仍产生一定离支撑样本。因此，本文不把 DDPM 描述为全面优于经典方法，而是把它视作在复杂螺旋几何上更有优势的模型。
+图 \ref{fig:hero} 直观展示了模型差异。KDE 在四类数据上都能较好贴合测试样本，说明在二维、样本量充分且带宽经过验证选择时，非参数密度估计非常有竞争力。GMM 在 Gaussian Mixture、Ring 和 Two Moons 上也较稳定，但在 Spiral 上需要用多个椭圆成分拼接长曲线，局部贴合不如 KDE。VAE 往往把样本填到低密度区域，例如 Ring 的中心区域和 Two Moons 两条月牙之间。DDPM 能生成可辨认的环、月牙和螺旋形态，但在当前网络规模和训练预算下，Precision 和 SWD 仍落后于 KDE。
 
 \subsection{主指标对比}
 
@@ -306,7 +306,7 @@ DDPM & 100 扩散步，MLP 噪声网络 & AdamW, 2500 epochs & 隐式采样 \\
 \label{tab:best}
 \end{table}
 
-表 \ref{tab:main} 和表 \ref{tab:best} 给出定量结论。Gaussian Mixture 上，GMM 的 MMD 为 \(0.0009\pm0.0006\)，略优于 KDE；这符合 GMM 的模型假设。Ring 上，KDE 的 MMD 和 SWD 最低，Coverage 达到 \(0.989\pm0.002\)，说明非参数平滑密度估计在规则闭合曲线上非常有效。Two Moons 上，GMM 在 BIC 选择较多组分后可用多个局部高斯逼近月牙结构，因此取得最低 MMD 与 SWD。Spiral 上，DDPM 的 MMD 为 \(0.0006\pm0.0001\)，低于 KDE、GMM 和 VAE；但从 SWD 和 Precision 看，GMM/KDE 仍有优势。这说明 DDPM 对螺旋整体分布形状有较好匹配，但局部贴合仍不稳定。
+表 \ref{tab:main} 和表 \ref{tab:best} 给出定量结论。Gaussian Mixture 上，KDE 的 MMD 为 \(0.0004\pm0.0002\)，略低于 GMM；但 GMM 的 NLL 更低、Precision 更高，说明显式混合高斯仍更擅长给测试点分配密度。Ring 上，KDE 的 MMD、SWD 和 Coverage 均为最优，Coverage 达到 \(0.988\pm0.005\)，说明合适带宽的局部核函数能自然保持闭合支撑。Two Moons 上，KDE 仍取得最低 MMD 与 SWD，GMM 则依靠多个局部高斯获得最高 Precision。Spiral 上，KDE 的 MMD 为 \(0.0006\pm0.0004\)，低于 GMM 和 DDPM；DDPM 与 GMM 的 MMD 接近，但 Precision 只有 \(0.725\pm0.016\)，说明它能学到大体螺旋形状，却仍产生较多离支撑样本。
 
 \subsection{指标热力图}
 
@@ -317,7 +317,7 @@ DDPM & 100 扩散步，MLP 噪声网络 & AdamW, 2500 epochs & 隐式采样 \\
 \label{fig:heatmap}
 \end{figure}
 
-图 \ref{fig:heatmap} 说明“最佳模型”依赖数据结构。若只看 Gaussian Mixture，会认为 GMM 最合理；若看 Spiral，则 DDPM 的相对优势最明显。这支持本文的核心观点：生成建模不是简单选择最新模型，而是要分析数据几何与模型假设是否匹配。
+图 \ref{fig:heatmap} 说明，在官方二维数据和 2000 个训练样本设置下，KDE 的 MMD 排名最稳定。这并不意味着 KDE 在所有生成任务中都优于神经模型，而是说明低维、样本充分、评价分布与训练分布同机制时，直接利用样本邻域的非参数估计很强。这个结果反而强化了本文的核心观点：生成建模不能简单按模型“新旧”排序，而要分析数据维度、样本量、支撑几何和评价指标。
 
 \subsection{条件生成实验}
 
@@ -371,21 +371,21 @@ p_\theta(\mathbf{x}\mid c),\quad c\in\{\text{Gaussian Mixture},\text{Ring},\text
 
 \subsection{为什么经典模型表现很强}
 
-本实验中 KDE 和 GMM 的表现并不意外。本文使用的数据只有二维，训练样本达到 1200 个，且测试分布和训练分布来自同一机制。此时非参数估计和混合高斯都有足够数据覆盖支撑区域。相比之下，VAE 和 DDPM 的神经网络结构需要通过优化学习密度形状，在这种低维合成任务上不一定比直接利用样本邻域更有效。因此，本文结论应理解为“在当前二维设置下经典模型是强基线”，而不是“经典模型普遍优于神经生成模型”。
+本实验中 KDE 和 GMM 的表现并不意外。本文使用的数据只有二维，训练样本达到每类 2000 个，且测试分布和训练分布来自同一官方生成机制。此时非参数估计和混合高斯都有足够数据覆盖支撑区域。尤其是 KDE，它没有强加有限高斯成分假设，只需通过带宽控制局部平滑，因此在 Ring、Two Moons 和 Spiral 这类弯曲支撑上也能保持很高 Coverage。相比之下，VAE 和 DDPM 的神经网络结构需要通过优化学习密度形状，在这种低维合成任务上不一定比直接利用样本邻域更有效。因此，本文结论应理解为“在当前二维设置下经典模型是强基线”，而不是“经典模型普遍优于神经生成模型”。
 
 \subsection{VAE 的过平滑现象}
 
 VAE 在四类数据上 Precision 明显偏低，说明生成样本常落在真实支撑之外。原因在于标准正态潜空间和均方重构误差倾向于学习连续平滑映射。当真实分布具有空洞或窄流形时，VAE 容易在流形之间插值，产生视觉上“填充空白”的样本。这个现象在 Ring 和 Two Moons 上最明显。
 
-\subsection{DDPM 的优势与成本}
+\subsection{DDPM 的表达能力与成本}
 
-DDPM 长训练后在 Spiral 上取得最低 MMD，说明逐步去噪模型能学习复杂非线性结构。但它仍需要更长训练和多步采样，训练时间约为 KDE 的几十倍。对二维课程作业而言，DDPM 的价值更多在于展示现代生成模型思想和复杂几何表达能力，而不是在所有指标上压倒经典方法。
+DDPM 长训练后可以生成可辨认的 Ring、Two Moons 和 Spiral 结构，说明逐步去噪模型确实具备表达复杂非线性几何的能力。但它仍需要更长训练和多步采样，训练时间约为 KDE 的十倍以上；在当前二维数据上，其 MMD、SWD 和 Precision 并没有压过 KDE。对本课程作业而言，DDPM 的价值更多在于展示现代生成模型思想、条件生成扩展和复杂几何表达能力，而不是在所有指标上取得最优。
 
 \subsection{局限性}
 
 本文仍有若干局限：
 \begin{enumerate}
-    \item 数据由本地脚本模拟生成，而不是助教真实文件；若后续获得官方数据，应替换数据源后重新运行；
+    \item 数据来自题目提供的二维合成生成器，结论严格对应该官方生成机制，不能外推到真实高维数据；
     \item VAE 和 DDPM 没有做大规模超参数搜索，因此神经模型可能不是最优实现；
     \item 本文没有实现 RealNVP 等精确似然神经模型，NLL 比较只覆盖 KDE 和 GMM；
     \item Precision/Coverage 的半径选择依赖近邻距离，改变半径会影响绝对数值；二维网格支撑覆盖率也受网格分辨率影响；
@@ -396,17 +396,16 @@ DDPM 长训练后在 Spiral 上取得最低 MMD，说明逐步去噪模型能学
 
 本文完成了二维分布生成建模任务，并比较了 KDE、GMM、VAE 和 DDPM 四类模型。主要结论如下：
 \begin{enumerate}
-    \item 在当前二维合成数据和样本量设置下，KDE 和 GMM 是非常强的基线，不应被省略；
-    \item Gaussian Mixture 最符合 GMM 的假设，因此 GMM 取得最低 MMD 和 SWD；
-    \item Ring 上 KDE 表现最好，说明局部核平滑能自然保持闭合支撑；
-    \item Two Moons 可被多个局部高斯成分较好逼近，因此 GMM 在 MMD/SWD 上领先；
-    \item Spiral 上 DDPM 取得最低 MMD，体现了逐步去噪模型对复杂曲线支撑的优势，但其局部 Precision 仍有提升空间；
+    \item 在官方二维生成器和每类 2000 个训练样本设置下，KDE 是最强整体基线，在四类分布上均取得最低 MMD、最低 SWD 和最高 Coverage；
+    \item Gaussian Mixture 上 GMM 的 NLL 和 Precision 最好，但 KDE 的样本分布距离更低，说明密度拟合和样本匹配并不完全等价；
+    \item Ring 和 Two Moons 上 KDE 表现最好，说明局部核平滑能自然保持闭合或弯曲支撑；
+    \item Spiral 上 KDE 仍取得最低 MMD，GMM 与 DDPM 接近但 Precision 较低，体现出长曲线支撑对局部贴合的要求；
     \item VAE 在本设置中明显过平滑，生成样本容易进入低密度区域；
     \item 条件 DDPM 可以用一个模型按标签生成四类分布，但共享参数会带来一定性能损失；
     \item 多个评价指标会给出不同侧面的结论，因此生成模型评价必须结合可视化、MMD/SWD、Precision/Coverage、支撑覆盖率和 NLL。
 \end{enumerate}
 
-如果继续改进，最有价值的方向是加入 RealNVP 或 Neural Spline Flow 作为精确似然神经模型，并在官方数据上重新评估。这样可以在保持神经模型表达能力的同时，对 NLL 做更公平的横向比较。
+如果继续改进，最有价值的方向是加入 RealNVP 或 Neural Spline Flow 作为精确似然神经模型。这样可以在保持神经模型表达能力的同时，对 NLL 做更公平的横向比较，也能检验神经生成模型是否能在二维官方数据上同时取得好样本距离和好似然。
 
 \clearpage
 \section{十一、复现实验、分工与 AI 使用说明}
@@ -415,10 +414,13 @@ DDPM 长训练后在 Spiral 上取得最低 MMD，说明逐步去噪模型能学
 
 在项目根目录运行：
 \begin{verbatim}
+python final_project/distribution2d_gen/generate_data.py \
+  --output-dir final_project/data --plot
+
 MPLCONFIGDIR=/tmp/mplconfig XDG_CACHE_HOME=/tmp \
 python final_project/src/run_experiments.py \
   --out-dir final_project/results \
-  --n-train 1200 --n-test 900 --n-generate 900 \
+  --n-train 2000 --n-test 2000 --n-generate 2000 \
   --seeds 0 1 2 --vae-epochs 320 --ddpm-epochs 2500 --ddpm-steps 100
 \end{verbatim}
 
@@ -431,6 +433,8 @@ python final_project/src/run_experiments.py \
 \toprule
 文件或目录 & 说明 \\
 \midrule
+\texttt{distribution2d\_gen/generate\_data.py} & 题目提供的二维分布数据生成代码 \\
+\texttt{data/} & 官方生成器默认 seed 生成的 train/test/hidden 数据文件 \\
 \texttt{src/run\_experiments.py} & 数据生成、模型训练、评价与绘图脚本 \\
 \texttt{results/metrics\_summary.csv} & 聚合指标表 \\
 \texttt{results/metrics\_by\_seed.json} & 逐 seed 完整指标 \\
@@ -476,9 +480,9 @@ def mmd_rbf(x, y):
 \toprule
 结论 & 证据 & 判定 \\
 \midrule
-经典模型在二维任务中很强 & KDE/GMM 在多数数据集 MMD/SWD 最低 & 支持 \\
+KDE 是官方二维数据上的强整体基线 & KDE 在四类数据集 MMD/SWD/Coverage 均最佳 & 支持 \\
 VAE 存在过平滑 & Ring/Two Moons 可视化和低 Precision & 支持 \\
-DDPM 适合复杂螺旋支撑但局部仍不稳 & Spiral 上 MMD 最低但 Precision 低于 KDE/GMM & 支持 \\
+DDPM 可表达弯曲结构但局部仍不稳 & 可视化可见环、月牙、螺旋形态，但 Precision/SWD 低于 KDE & 支持 \\
 条件生成可行但有性能代价 & 条件 DDPM 可生成四类分布但部分 MMD 高于独立模型 & 支持 \\
 单一指标不足 & MMD、Coverage、Precision 排名不完全一致 & 支持 \\
 异常点会影响生成质量 & 四类模型 Robustness 曲线随 outlier rate 变化 & 支持 \\
