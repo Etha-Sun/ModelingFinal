@@ -1,0 +1,20 @@
+# LaTeX build artifacts
+report/*.aux
+report/*.fdb_latexmk
+report/*.fls
+report/*.log
+report/*.out
+report/*.toc
+report/*.xdv
+report/preview/
+
+# Intermediate experiment checks
+results_quick/
+results_ddpm_long_check/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# OS files
+.DS_Store

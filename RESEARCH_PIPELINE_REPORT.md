@@ -1,0 +1,63 @@
+# Research Pipeline Report
+
+**Direction**: 二维分布生成建模  
+**Plan source**: `/Users/sun/Desktop/Homework/Mathematical Modeling/PAPER_PLAN.md`  
+**Reference format**: `hw_3/option2_insects/report.pdf`  
+**Date**: 2026-06-10  
+**Pipeline used**: fixed-topic implementation -> experiments -> report writing -> compile and QA
+
+## Journey Summary
+
+- The topic was already fixed by the user: the final project is the course option "二维分布生成建模".
+- Implemented a full reproducible experiment pipeline for four 2D distributions: Gaussian Mixture, Ring, Two Moons, and Spiral.
+- Implemented four model families: KDE, GMM, VAE, and DDPM.
+- Ran the main comparison over 4 datasets x 4 models x 3 seeds, with 1200 training samples and 900 test/generated samples per dataset.
+- Computed MMD, sliced Wasserstein distance, Precision, Coverage, support coverage, NLL for explicit-density models, and training time.
+- Generated paper-quality PDF/PNG figures and LaTeX tables.
+- Wrote and compiled a 19-page Chinese course-report-style PDF matching the previous homework report format.
+
+## Final Status
+
+- [x] Ready for course submission after user-side naming/packaging.
+- [x] PDF compiles successfully.
+- [x] No undefined references or citations.
+- [x] No LaTeX overfull warnings.
+- [x] PDF fonts are embedded; no Type 3 fonts remain.
+
+## Key Result
+
+The final conclusion is not a generic "neural models win" story. In this low-dimensional, sample-rich setting, KDE and GMM are very strong baselines. GMM has the lowest MMD/SWD on Gaussian Mixture and Two Moons, KDE is best on Ring, and DDPM obtains the lowest MMD on Spiral after longer training. VAE is stable but visibly over-smooths low-density holes and curved supports.
+
+## Files Created or Modified
+
+- `final_project/src/run_experiments.py` — full data/model/evaluation/plot pipeline.
+- `final_project/results/metrics_summary.csv` — aggregate metrics.
+- `final_project/results/metrics_by_seed.csv` and `.json` — per-seed metrics.
+- `final_project/results/figures/*.pdf` and `.png` — report figures.
+- `final_project/results/tables/*.tex` — LaTeX table fragments.
+- `final_project/results/run_manifest.json` — reproducibility record.
+- `final_project/report/main.tex` — report source.
+- `final_project/report/main.pdf` — compiled final report.
+
+## Reproduction Command
+
+```bash
+MPLCONFIGDIR=/tmp/mplconfig XDG_CACHE_HOME=/tmp \
+python final_project/src/run_experiments.py \
+  --out-dir final_project/results \
+  --n-train 1200 --n-test 900 --n-generate 900 \
+  --seeds 0 1 2 --vae-epochs 320 --ddpm-epochs 2500 --ddpm-steps 100
+```
+
+Compile:
+
+```bash
+cd final_project/report
+env LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+latexmk -xelatex -interaction=nonstopmode -halt-on-error main.tex
+```
+
+## Remaining TODOs
+
+- If the teaching assistant later provides official data files, replace the synthetic generator with the official loader and rerun the same pipeline.
+- Package the submission zip using the required course naming convention.
