@@ -39,7 +39,7 @@ matplotlib.rcParams["font.family"] = "DejaVu Sans"
 
 DATASETS = ["gaussian_mixture", "ring", "two_moons", "spiral"]
 MODEL_ORDER = ["kde", "gmm", "vae", "ddpm"]
-MODEL_LABELS = {"kde": "KDE", "gmm": "GMM", "vae": "VAE", "ddpm": "DDPM"}
+MODEL_LABELS = {"kde": "KDE", "gmm": "GMM", "vae": "VAE", "ddpm": "DDPM", "conditional_ddpm": "Cond-DDPM"}
 DATASET_LABELS = {
     "gaussian_mixture": "Gaussian Mixture",
     "ring": "Ring",
@@ -308,6 +308,25 @@ class Denoiser(nn.Module):
         return self.net(torch.cat([x, self.time(t)], dim=1))
 
 
+class ConditionalDenoiser(nn.Module):
+    def __init__(self, num_classes: int = 4, hidden: int = 160, time_dim: int = 32, class_dim: int = 16):
+        super().__init__()
+        self.time = TimeEmbedding(time_dim)
+        self.cls = nn.Embedding(num_classes, class_dim)
+        self.net = nn.Sequential(
+            nn.Linear(2 + time_dim + class_dim, hidden),
+            nn.SiLU(),
+            nn.Linear(hidden, hidden),
+            nn.SiLU(),
+            nn.Linear(hidden, hidden),
+            nn.SiLU(),
+            nn.Linear(hidden, 2),
+        )
+
+    def forward(self, x: torch.Tensor, t: torch.Tensor, c: torch.Tensor) -> torch.Tensor:
+        return self.net(torch.cat([x, self.time(t), self.cls(c)], dim=1))
+
+
 def diffusion_schedule(steps: int, device: str) -> dict[str, torch.Tensor]:
     beta = torch.linspace(1e-4, 0.035, steps, device=device)
     alpha = 1.0 - beta
@@ -342,6 +361,47 @@ def train_ddpm(train: np.ndarray, seed: int, epochs: int, steps: int, device: st
     return model, {"epochs": epochs, "steps": steps, "history": history}
 
 
+def train_conditional_ddpm(
+    train_by_class: dict[str, np.ndarray],
+    seed: int,
+    epochs: int,
+    steps: int,
+    device: str,
+) -> tuple[ConditionalDenoiser, dict[str, object]]:
+    set_seed(seed)
+    xs = []
+    ys = []
+    for cls, dataset in enumerate(DATASETS):
+        x = train_by_class[dataset]
+        xs.append(x)
+        ys.append(np.full(len(x), cls, dtype=np.int64))
+    x0 = torch.as_tensor(np.vstack(xs), dtype=torch.float32, device=device)
+    labels = torch.as_tensor(np.concatenate(ys), dtype=torch.long, device=device)
+    model = ConditionalDenoiser(num_classes=len(DATASETS)).to(device)
+    opt = torch.optim.AdamW(model.parameters(), lr=1.2e-3, weight_decay=1e-4)
+    sched = diffusion_schedule(steps, device)
+    history = []
+    n = len(x0)
+    batch_size = min(768, n)
+    gen = torch.Generator(device=device).manual_seed(seed + 4242) if device != "cpu" else torch.Generator().manual_seed(seed + 4242)
+    for epoch in range(1, epochs + 1):
+        idx = torch.randint(0, n, (batch_size,), generator=gen, device=device)
+        xb = x0[idx]
+        cb = labels[idx]
+        t = torch.randint(0, steps, (batch_size,), generator=gen, device=device)
+        noise = torch.randn(xb.shape, generator=gen, device=device)
+        ab = sched["alpha_bar"][t][:, None]
+        xt = torch.sqrt(ab) * xb + torch.sqrt(1.0 - ab) * noise
+        pred = model(xt, t, cb)
+        loss = F.mse_loss(pred, noise)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        if epoch == 1 or epoch % max(1, epochs // 8) == 0 or epoch == epochs:
+            history.append({"epoch": epoch, "loss": float(loss.item())})
+    return model, {"epochs": epochs, "steps": steps, "history": history}
+
+
 def sample_ddpm(model: Denoiser, n: int, steps: int, seed: int, device: str) -> np.ndarray:
     set_seed(seed)
     sched = diffusion_schedule(steps, device)
@@ -358,6 +418,34 @@ def sample_ddpm(model: Denoiser, n: int, steps: int, seed: int, device: str) -> 
             if t_idx > 0:
                 z = torch.randn_like(x)
                 x = mean + torch.sqrt(beta_t) * z
+            else:
+                x = mean
+    return x.cpu().numpy()
+
+
+def sample_conditional_ddpm(
+    model: ConditionalDenoiser,
+    cls: int,
+    n: int,
+    steps: int,
+    seed: int,
+    device: str,
+) -> np.ndarray:
+    set_seed(seed)
+    sched = diffusion_schedule(steps, device)
+    model.eval()
+    x = torch.randn(n, 2, device=device)
+    c = torch.full((n,), cls, dtype=torch.long, device=device)
+    with torch.no_grad():
+        for t_idx in reversed(range(steps)):
+            t = torch.full((n,), t_idx, dtype=torch.long, device=device)
+            beta_t = sched["beta"][t_idx]
+            alpha_t = sched["alpha"][t_idx]
+            alpha_bar_t = sched["alpha_bar"][t_idx]
+            eps = model(x, t, c)
+            mean = (x - beta_t / torch.sqrt(1.0 - alpha_bar_t) * eps) / torch.sqrt(alpha_t)
+            if t_idx > 0:
+                x = mean + torch.sqrt(beta_t) * torch.randn_like(x)
             else:
                 x = mean
     return x.cpu().numpy()
@@ -403,23 +491,21 @@ def precision_coverage(real: np.ndarray, gen: np.ndarray) -> tuple[float, float,
     return precision, coverage, radius
 
 
-def support_bins(name: str, x: np.ndarray, bins: int = 32) -> np.ndarray:
-    if name in {"ring", "spiral"}:
-        ang = np.arctan2(x[:, 1], x[:, 0])
-        val = (ang + np.pi) / (2 * np.pi)
-    elif name == "two_moons":
-        val = (x[:, 0] - x[:, 0].min()) / (x[:, 0].ptp() + 1e-9)
-    else:
-        val = (np.arctan2(x[:, 1], x[:, 0]) + np.pi) / (2 * np.pi)
-    idx = np.clip((val * bins).astype(int), 0, bins - 1)
-    occ = np.zeros(bins, dtype=bool)
-    occ[idx] = True
-    return occ
+def grid_support_coverage(real: np.ndarray, gen: np.ndarray, bins: int = 36) -> float:
+    lower = np.percentile(real, 1, axis=0) - 0.15
+    upper = np.percentile(real, 99, axis=0) + 0.15
+    scale = np.maximum(upper - lower, 1e-6)
 
+    def occupied(points: np.ndarray) -> np.ndarray:
+        idx = np.floor((points - lower) / scale * bins).astype(int)
+        valid = np.all((idx >= 0) & (idx < bins), axis=1)
+        occ = np.zeros((bins, bins), dtype=bool)
+        if np.any(valid):
+            occ[idx[valid, 0], idx[valid, 1]] = True
+        return occ
 
-def mode_coverage(name: str, real: np.ndarray, gen: np.ndarray) -> float:
-    real_occ = support_bins(name, real)
-    gen_occ = support_bins(name, gen)
+    real_occ = occupied(real)
+    gen_occ = occupied(gen)
     return float(np.sum(real_occ & gen_occ) / max(np.sum(real_occ), 1))
 
 
@@ -442,7 +528,7 @@ def evaluate_samples(
         "sliced_wasserstein": sliced_wasserstein(test, generated, seed=seed),
         "precision": precision,
         "coverage": coverage,
-        "support_coverage": mode_coverage(dataset, test, generated),
+        "support_coverage": grid_support_coverage(test, generated),
         "nll": nll,
         "radius": radius,
         "train_time_sec": train_time,
@@ -571,37 +657,89 @@ def plot_hyperparams(meta: dict[str, object], fig_dir: Path) -> None:
     plt.close(fig)
 
 
-def robustness_experiment(seed: int, config: ExperimentConfig, out_dir: Path) -> list[dict[str, object]]:
+def run_model_once(
+    model_name: str,
+    train: np.ndarray,
+    test: np.ndarray,
+    dataset: str,
+    seed: int,
+    config: ExperimentConfig,
+    vae_epochs: int | None = None,
+    ddpm_epochs: int | None = None,
+) -> tuple[np.ndarray, float | None, dict[str, object], float]:
+    start = time.time()
+    if model_name == "kde":
+        model, info = choose_kde(train, seed)
+        generated = model.sample(config.n_generate, random_state=seed + 71)
+        nll = -float(model.score(test) / len(test))
+    elif model_name == "gmm":
+        model, info = choose_gmm(train, seed)
+        generated, _ = model.sample(config.n_generate)
+        nll = -float(model.score(test))
+    elif model_name == "vae":
+        model, info = train_vae(train, seed, vae_epochs or config.vae_epochs, config.device)
+        generated = model.sample(config.n_generate, config.device)
+        nll = None
+    elif model_name == "ddpm":
+        model, info = train_ddpm(train, seed, ddpm_epochs or config.ddpm_epochs, config.ddpm_steps, config.device)
+        generated = sample_ddpm(model, config.n_generate, config.ddpm_steps, seed + 91, config.device)
+        nll = None
+    else:
+        raise ValueError(f"Unknown model: {model_name}")
+    return generated, nll, info, time.time() - start
+
+
+def robustness_experiment(config: ExperimentConfig, out_dir: Path) -> list[dict[str, object]]:
     rows = []
-    rng = np.random.default_rng(seed + 2026)
-    for dataset in DATASETS:
-        clean = generate_dataset(dataset, seed + 10, config.n_train, config.n_test)
-        test = clean["test"]
-        for rate in [0.0, 0.03, 0.08, 0.15]:
-            train = np.array(clean["train"], copy=True)
-            n_out = int(len(train) * rate)
-            if n_out > 0:
-                outliers = rng.uniform(-3.2, 3.2, size=(n_out, 2)).astype(np.float32)
-                train = np.vstack([train, outliers])
-            for model_name in ["kde", "gmm"]:
-                if model_name == "kde":
-                    model, _ = choose_kde(train, seed)
-                    gen = model.sample(config.n_generate, random_state=seed)
-                    nll = -float(model.score(test) / len(test))
-                else:
-                    model, _ = choose_gmm(train, seed)
-                    gen, _ = model.sample(config.n_generate)
-                    nll = -float(model.score(test))
-                rows.append(
-                    {
-                        "dataset": dataset,
-                        "model": model_name,
-                        "outlier_rate": rate,
-                        "mmd": mmd_rbf(test, gen),
-                        "sliced_wasserstein": sliced_wasserstein(test, gen, seed),
-                        "nll": nll,
-                    }
-                )
+    robust_config = ExperimentConfig(
+        n_train=config.n_train,
+        n_test=config.n_test,
+        n_generate=config.n_generate,
+        seeds=config.seeds,
+        vae_epochs=max(120, config.vae_epochs // 2),
+        ddpm_epochs=max(900, config.ddpm_epochs // 2),
+        ddpm_steps=config.ddpm_steps,
+        device=config.device,
+    )
+    for seed in config.seeds:
+        rng = np.random.default_rng(seed + 2026)
+        for dataset in DATASETS:
+            clean = generate_dataset(dataset, seed + 10, config.n_train, config.n_test)
+            test = clean["test"]
+            for rate in [0.0, 0.03, 0.08, 0.15]:
+                train = np.array(clean["train"], copy=True)
+                n_out = int(len(train) * rate)
+                if n_out > 0:
+                    outliers = rng.uniform(-3.2, 3.2, size=(n_out, 2)).astype(np.float32)
+                    train = np.vstack([train, outliers])
+                for model_name in MODEL_ORDER:
+                    gen, nll, _, train_time = run_model_once(
+                        model_name,
+                        train,
+                        test,
+                        dataset,
+                        seed + int(rate * 1000),
+                        robust_config,
+                        vae_epochs=robust_config.vae_epochs,
+                        ddpm_epochs=robust_config.ddpm_epochs,
+                    )
+                    precision, coverage, radius = precision_coverage(test, gen)
+                    rows.append(
+                        {
+                            "dataset": dataset,
+                            "model": model_name,
+                            "seed": seed,
+                            "outlier_rate": rate,
+                            "mmd": mmd_rbf(test, gen),
+                            "sliced_wasserstein": sliced_wasserstein(test, gen, seed),
+                            "precision": precision,
+                            "coverage": coverage,
+                            "support_coverage": grid_support_coverage(test, gen),
+                            "nll": nll,
+                            "radius": radius,
+                            "train_time_sec": train_time,
+                        }
+                    )
     write_csv(out_dir / "robustness.csv", rows)
     return rows
 
@@ -609,9 +747,15 @@ def robustness_experiment(seed: int, config: ExperimentConfig, out_dir: Path) ->
 def plot_robustness(rows: list[dict[str, object]], fig_dir: Path) -> None:
     fig, axes = plt.subplots(2, 2, figsize=(9.2, 6.6), constrained_layout=True)
     for ax, dataset in zip(axes.flat, DATASETS):
-        for model in ["kde", "gmm"]:
-            group = [r for r in rows if r["dataset"] == dataset and r["model"] == model]
-            ax.plot([r["outlier_rate"] for r in group], [r["mmd"] for r in group], marker="o", label=MODEL_LABELS[model])
+        for model in MODEL_ORDER:
+            rates = sorted({float(r["outlier_rate"]) for r in rows if r["dataset"] == dataset and r["model"] == model})
+            vals = []
+            errs = []
+            for rate in rates:
+                group = [float(r["mmd"]) for r in rows if r["dataset"] == dataset and r["model"] == model and float(r["outlier_rate"]) == rate]
+                vals.append(float(np.mean(group)))
+                errs.append(float(np.std(group, ddof=0)))
+            ax.errorbar(rates, vals, yerr=errs, marker="o", capsize=2, label=MODEL_LABELS[model])
         ax.set_title(DATASET_LABELS[dataset])
         ax.set_xlabel("outlier rate")
         ax.set_ylabel("MMD")
@@ -619,6 +763,56 @@ def plot_robustness(rows: list[dict[str, object]], fig_dir: Path) -> None:
         ax.legend(fontsize=8)
     fig.savefig(fig_dir / "fig8_robustness.png", dpi=240)
     fig.savefig(fig_dir / "fig8_robustness.pdf")
+    plt.close(fig)
+
+
+def aggregate_conditional(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    metrics = ["mmd", "sliced_wasserstein", "precision", "coverage", "support_coverage", "train_time_sec"]
+    out = []
+    for dataset in DATASETS:
+        group = [r for r in rows if r["dataset"] == dataset]
+        item: dict[str, object] = {"dataset": dataset, "model": "conditional_ddpm", "n": len(group)}
+        for key in metrics:
+            vals = np.asarray([float(r[key]) for r in group], dtype=float)
+            item[f"{key}_mean"] = float(vals.mean())
+            item[f"{key}_std"] = float(vals.std(ddof=0))
+        out.append(item)
+    return out
+
+
+def conditional_experiment(
+    train_sets_by_seed: dict[int, dict[str, np.ndarray]],
+    test_sets_by_seed: dict[int, dict[str, np.ndarray]],
+    config: ExperimentConfig,
+    out_dir: Path,
+) -> tuple[list[dict[str, object]], dict[str, np.ndarray]]:
+    rows = []
+    samples_for_plot: dict[str, np.ndarray] = {}
+    cond_epochs = max(1800, int(config.ddpm_epochs * 0.75))
+    for seed in config.seeds:
+        start = time.time()
+        model, info = train_conditional_ddpm(train_sets_by_seed[seed], seed, cond_epochs, config.ddpm_steps, config.device)
+        train_time = time.time() - start
+        for cls, dataset in enumerate(DATASETS):
+            test = test_sets_by_seed[seed][dataset]
+            generated = sample_conditional_ddpm(model, cls, config.n_generate, config.ddpm_steps, seed + 515 + cls, config.device)
+            rows.append(evaluate_samples(dataset, "conditional_ddpm", test, generated, seed, None, train_time, info))
+            if seed == config.seeds[0]:
+                samples_for_plot[dataset] = generated
+    write_csv(out_dir / "conditional_metrics_by_seed.csv", rows)
+    save_json(out_dir / "conditional_metrics_by_seed.json", rows)
+    save_json(out_dir / "conditional_metrics_summary.json", aggregate_conditional(rows))
+    return rows, samples_for_plot
+
+
+def plot_conditional(samples: dict[str, np.ndarray], tests: dict[str, np.ndarray], fig_dir: Path) -> None:
+    fig, axes = plt.subplots(2, 4, figsize=(12, 5.8), constrained_layout=True)
+    for col, dataset in enumerate(DATASETS):
+        scatter_panel(axes[0, col], tests[dataset], None, f"{DATASET_LABELS[dataset]}\nReal test")
+        scatter_panel(axes[1, col], tests[dataset], samples[dataset], "Conditional DDPM")
+    fig.suptitle("One conditional DDPM generates all four distributions by class label", fontsize=14, fontweight="bold")
+    fig.savefig(fig_dir / "fig7_conditional_generation.png", dpi=240)
+    fig.savefig(fig_dir / "fig7_conditional_generation.pdf")
     plt.close(fig)
 
 
@@ -644,7 +838,7 @@ def write_tex_tables(agg: list[dict[str, object]], out_dir: Path) -> None:
             row = next(r for r in agg if r["dataset"] == dataset and r["model"] == model)
             lines.append(
                 f"{DATASET_LABELS[dataset]} & {MODEL_LABELS[model]} & "
-                f"{fmt(row['mmd_mean'], row['mmd_std'])} & "
+                f"{fmt(row['mmd_mean'], row['mmd_std'], digits=4)} & "
                 f"{fmt(row['sliced_wasserstein_mean'], row['sliced_wasserstein_std'])} & "
                 f"{fmt(row['precision_mean'], row['precision_std'])} & "
                 f"{fmt(row['coverage_mean'], row['coverage_std'])} & "
@@ -673,6 +867,28 @@ def write_tex_tables(agg: list[dict[str, object]], out_dir: Path) -> None:
     (table_dir / "best_models_table.tex").write_text("\n".join(best_lines), encoding="utf-8")
 
 
+def write_conditional_table(cond_agg: list[dict[str, object]], out_dir: Path) -> None:
+    table_dir = out_dir / "tables"
+    table_dir.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "\\begin{tabular}{lrrrr}",
+        "\\toprule",
+        "数据集 & MMD $\\downarrow$ & SWD $\\downarrow$ & Precision $\\uparrow$ & Coverage $\\uparrow$ \\\\",
+        "\\midrule",
+    ]
+    for dataset in DATASETS:
+        row = next(r for r in cond_agg if r["dataset"] == dataset)
+        lines.append(
+            f"{DATASET_LABELS[dataset]} & "
+            f"{fmt(row['mmd_mean'], row['mmd_std'], digits=4)} & "
+            f"{fmt(row['sliced_wasserstein_mean'], row['sliced_wasserstein_std'])} & "
+            f"{fmt(row['precision_mean'], row['precision_std'])} & "
+            f"{fmt(row['coverage_mean'], row['coverage_std'])} \\\\"
+        )
+    lines.extend(["\\bottomrule", "\\end{tabular}"])
+    (table_dir / "conditional_results_table.tex").write_text("\n".join(lines), encoding="utf-8")
+
+
 def save_json(path: Path, obj: object) -> None:
     path.write_text(json.dumps(obj, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -697,6 +913,8 @@ def main() -> None:
     all_rows: list[dict[str, object]] = []
     all_samples: dict[tuple[str, str], np.ndarray] = {}
     tests_for_plot: dict[str, np.ndarray] = {}
+    train_sets_by_seed: dict[int, dict[str, np.ndarray]] = {seed: {} for seed in config.seeds}
+    test_sets_by_seed: dict[int, dict[str, np.ndarray]] = {seed: {} for seed in config.seeds}
     meta: dict[str, object] = {}
     start_all = time.time()
 
@@ -706,6 +924,8 @@ def main() -> None:
             data = generate_dataset(dataset_name, seed, config.n_train, config.n_test)
             train = data["train"]
             test = data["test"]
+            train_sets_by_seed[seed][dataset_name] = train
+            test_sets_by_seed[seed][dataset_name] = test
             if seed == config.seeds[0]:
                 tests_for_plot[dataset_name] = test
 
@@ -751,6 +971,11 @@ def main() -> None:
     save_json(out_dir / "model_metadata.json", meta)
     write_tex_tables(agg, out_dir)
 
+    cond_rows, cond_samples = conditional_experiment(train_sets_by_seed, test_sets_by_seed, config, out_dir)
+    cond_agg = aggregate_conditional(cond_rows)
+    write_csv(out_dir / "conditional_metrics_summary.csv", cond_agg)
+    write_conditional_table(cond_agg, out_dir)
+
     for (dataset, model), samples in all_samples.items():
         np.save(sample_dir / f"{dataset}_{model}_samples.npy", samples)
     for dataset, test in tests_for_plot.items():
@@ -760,7 +985,8 @@ def main() -> None:
     plot_data_overview(tests_for_plot, fig_dir)
     plot_metric_heatmap(agg, fig_dir)
     plot_hyperparams(meta, fig_dir)
-    robust_rows = robustness_experiment(config.seeds[0], config, out_dir)
+    plot_conditional(cond_samples, tests_for_plot, fig_dir)
+    robust_rows = robustness_experiment(config, out_dir)
     plot_robustness(robust_rows, fig_dir)
 
     manifest = {

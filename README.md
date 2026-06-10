@@ -5,7 +5,7 @@ This repository contains the final project for USTC Mathematical Modeling: a com
 ## Contents
 
 - `src/run_experiments.py`: reproducible experiment pipeline.
-- `results/`: metrics, generated samples, figures, LaTeX table fragments, and run manifest.
+- `results/`: metrics, generated samples, robustness/conditional-generation outputs, figures, LaTeX table fragments, and run manifest.
 - `report/main.tex`: report source.
 - `report/main.pdf`: compiled final report.
 - `RESEARCH_PIPELINE_REPORT.md`: execution summary and reproduction commands.

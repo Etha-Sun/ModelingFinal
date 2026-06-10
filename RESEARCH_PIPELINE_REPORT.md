@@ -10,9 +10,11 @@
 
 - The topic was already fixed by the user: the final project is the course option "二维分布生成建模".
 - Implemented a full reproducible experiment pipeline for four 2D distributions: Gaussian Mixture, Ring, Two Moons, and Spiral.
-- Implemented four model families: KDE, GMM, VAE, and DDPM.
+- Implemented four unconditional model families: KDE, GMM, VAE, and DDPM.
+- Implemented a unified conditional DDPM for the optional conditional-generation task.
 - Ran the main comparison over 4 datasets x 4 models x 3 seeds, with 1200 training samples and 900 test/generated samples per dataset.
-- Computed MMD, sliced Wasserstein distance, Precision, Coverage, support coverage, NLL for explicit-density models, and training time.
+- Computed MMD, sliced Wasserstein distance, Precision, Coverage, 2D grid support coverage, NLL for explicit-density models, and training time.
+- Expanded robustness analysis to KDE, GMM, VAE, and DDPM over 3 seeds.
 - Generated paper-quality PDF/PNG figures and LaTeX tables.
 - Wrote and compiled a 19-page Chinese course-report-style PDF matching the previous homework report format.
 
@@ -26,13 +28,15 @@
 
 ## Key Result
 
-The final conclusion is not a generic "neural models win" story. In this low-dimensional, sample-rich setting, KDE and GMM are very strong baselines. GMM has the lowest MMD/SWD on Gaussian Mixture and Two Moons, KDE is best on Ring, and DDPM obtains the lowest MMD on Spiral after longer training. VAE is stable but visibly over-smooths low-density holes and curved supports.
+The final conclusion is not a generic "neural models win" story. In this low-dimensional synthetic setting, KDE and GMM are very strong baselines. GMM has the lowest MMD/SWD on Gaussian Mixture and Two Moons, KDE is best on Ring, and DDPM obtains the lowest MMD on Spiral after longer training, though its local precision is weaker. VAE is stable but visibly over-smooths low-density holes and curved supports. Conditional DDPM can generate all four classes from one model, but parameter sharing introduces a measurable quality cost.
 
 ## Files Created or Modified
 
 - `final_project/src/run_experiments.py` — full data/model/evaluation/plot pipeline.
 - `final_project/results/metrics_summary.csv` — aggregate metrics.
 - `final_project/results/metrics_by_seed.csv` and `.json` — per-seed metrics.
+- `final_project/results/conditional_metrics_summary.csv` — conditional DDPM metrics.
+- `final_project/results/robustness.csv` — robustness metrics for all four model families.
 - `final_project/results/figures/*.pdf` and `.png` — report figures.
 - `final_project/results/tables/*.tex` — LaTeX table fragments.
 - `final_project/results/run_manifest.json` — reproducibility record.
