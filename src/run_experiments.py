@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-"""Run reproducible 2D generative-model experiments for the final project."""
-
 from __future__ import annotations
 
 import argparse
