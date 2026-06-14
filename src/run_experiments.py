@@ -188,16 +188,21 @@ def generate_dataset(name: str, seed: int, n_train: int, n_test: int, official_s
     split_seed = official_seed_base + 10 * seed
     train_all, train_label = make_official_split(n_train, split_seed)
     test_all, test_label = make_official_split(n_test, split_seed + 1)
+    hidden_all, hidden_label = make_official_split(n_test, split_seed + 2)
     label = DATASETS.index(name)
     raw_train = train_all[train_label == label]
     raw_test = test_all[test_label == label]
+    raw_hidden = hidden_all[hidden_label == label]
     train, test, stats = standardize(raw_train, raw_test)
+    hidden = ((raw_hidden - np.asarray(stats["mean"], dtype=np.float32)) / np.asarray(stats["std"], dtype=np.float32)).astype(np.float32)
     return {
         "name": name,
         "train": train.astype(np.float32),
         "test": test.astype(np.float32),
+        "hidden": hidden,
         "raw_train": raw_train.astype(np.float32),
         "raw_test": raw_test.astype(np.float32),
+        "raw_hidden": raw_hidden.astype(np.float32),
         "standardization": stats,
     }
 
@@ -803,10 +808,12 @@ def aggregate_conditional(rows: list[dict[str, object]]) -> list[dict[str, objec
 def conditional_experiment(
     train_sets_by_seed: dict[int, dict[str, np.ndarray]],
     test_sets_by_seed: dict[int, dict[str, np.ndarray]],
+    hidden_sets_by_seed: dict[int, dict[str, np.ndarray]],
     config: ExperimentConfig,
     out_dir: Path,
-) -> tuple[list[dict[str, object]], dict[str, np.ndarray]]:
+) -> tuple[list[dict[str, object]], list[dict[str, object]], dict[str, np.ndarray]]:
     rows = []
+    hidden_rows = []
     samples_for_plot: dict[str, np.ndarray] = {}
     cond_epochs = max(1800, int(config.ddpm_epochs * 0.75))
     for seed in config.seeds:
@@ -815,14 +822,19 @@ def conditional_experiment(
         train_time = time.time() - start
         for cls, dataset in enumerate(DATASETS):
             test = test_sets_by_seed[seed][dataset]
+            hidden = hidden_sets_by_seed[seed][dataset]
             generated = sample_conditional_ddpm(model, cls, config.n_generate, config.ddpm_steps, seed + 515 + cls, config.device)
             rows.append(evaluate_samples(dataset, "conditional_ddpm", test, generated, seed, None, train_time, info))
+            hidden_rows.append(evaluate_samples(dataset, "conditional_ddpm", hidden, generated, seed, None, train_time, info))
             if seed == config.seeds[0]:
                 samples_for_plot[dataset] = generated
     write_csv(out_dir / "conditional_metrics_by_seed.csv", rows)
     save_json(out_dir / "conditional_metrics_by_seed.json", rows)
     save_json(out_dir / "conditional_metrics_summary.json", aggregate_conditional(rows))
-    return rows, samples_for_plot
+    write_csv(out_dir / "conditional_hidden_metrics_by_seed.csv", hidden_rows)
+    save_json(out_dir / "conditional_hidden_metrics_by_seed.json", hidden_rows)
+    save_json(out_dir / "conditional_hidden_metrics_summary.json", aggregate_conditional(hidden_rows))
+    return rows, hidden_rows, samples_for_plot
 
 
 def plot_conditional(samples: dict[str, np.ndarray], tests: dict[str, np.ndarray], fig_dir: Path) -> None:
@@ -887,7 +899,32 @@ def write_tex_tables(agg: list[dict[str, object]], out_dir: Path) -> None:
     (table_dir / "best_models_table.tex").write_text("\n".join(best_lines), encoding="utf-8")
 
 
-def write_conditional_table(cond_agg: list[dict[str, object]], out_dir: Path) -> None:
+def write_hidden_table(hidden_agg: list[dict[str, object]], out_dir: Path) -> None:
+    table_dir = out_dir / "tables"
+    table_dir.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "\\begin{tabular}{llrrrrr}",
+        "\\toprule",
+        "数据集 & 模型 & MMD $\\downarrow$ & SWD $\\downarrow$ & Precision $\\uparrow$ & Coverage $\\uparrow$ & NLL $\\downarrow$ \\\\",
+        "\\midrule",
+    ]
+    for dataset in DATASETS:
+        for model in MODEL_ORDER:
+            row = next(r for r in hidden_agg if r["dataset"] == dataset and r["model"] == model)
+            lines.append(
+                f"{DATASET_LABELS[dataset]} & {MODEL_LABELS[model]} & "
+                f"{fmt(row['mmd_mean'], row['mmd_std'], digits=4)} & "
+                f"{fmt(row['sliced_wasserstein_mean'], row['sliced_wasserstein_std'])} & "
+                f"{fmt(row['precision_mean'], row['precision_std'])} & "
+                f"{fmt(row['coverage_mean'], row['coverage_std'])} & "
+                f"{fmt(row['nll_mean'], row['nll_std'])} \\\\"
+            )
+        lines.append("\\addlinespace")
+    lines.extend(["\\bottomrule", "\\end{tabular}"])
+    (table_dir / "hidden_results_table.tex").write_text("\n".join(lines), encoding="utf-8")
+
+
+def write_conditional_table(cond_agg: list[dict[str, object]], out_dir: Path, filename: str = "conditional_results_table.tex") -> None:
     table_dir = out_dir / "tables"
     table_dir.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -906,7 +943,7 @@ def write_conditional_table(cond_agg: list[dict[str, object]], out_dir: Path) ->
             f"{fmt(row['coverage_mean'], row['coverage_std'])} \\\\"
         )
     lines.extend(["\\bottomrule", "\\end{tabular}"])
-    (table_dir / "conditional_results_table.tex").write_text("\n".join(lines), encoding="utf-8")
+    (table_dir / filename).write_text("\n".join(lines), encoding="utf-8")
 
 
 def save_json(path: Path, obj: object) -> None:
@@ -932,10 +969,12 @@ def main() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
     all_rows: list[dict[str, object]] = []
+    hidden_rows: list[dict[str, object]] = []
     all_samples: dict[tuple[str, str], np.ndarray] = {}
     tests_for_plot: dict[str, np.ndarray] = {}
     train_sets_by_seed: dict[int, dict[str, np.ndarray]] = {seed: {} for seed in config.seeds}
     test_sets_by_seed: dict[int, dict[str, np.ndarray]] = {seed: {} for seed in config.seeds}
+    hidden_sets_by_seed: dict[int, dict[str, np.ndarray]] = {seed: {} for seed in config.seeds}
     meta: dict[str, object] = {}
     start_all = time.time()
 
@@ -945,8 +984,10 @@ def main() -> None:
             data = generate_dataset(dataset_name, seed, config.n_train, config.n_test, config.official_seed_base)
             train = data["train"]
             test = data["test"]
+            hidden = data["hidden"]
             train_sets_by_seed[seed][dataset_name] = train
             test_sets_by_seed[seed][dataset_name] = test
+            hidden_sets_by_seed[seed][dataset_name] = hidden
             if seed == config.seeds[0]:
                 tests_for_plot[dataset_name] = test
 
@@ -954,7 +995,10 @@ def main() -> None:
             kde, kde_info = choose_kde(train, seed)
             kde_samples = kde.sample(config.n_generate, random_state=seed + 77)
             kde_nll = -float(kde.score(test) / len(test))
-            all_rows.append(evaluate_samples(dataset_name, "kde", test, kde_samples, seed, kde_nll, time.time() - start, kde_info))
+            kde_hidden_nll = -float(kde.score(hidden) / len(hidden))
+            train_time = time.time() - start
+            all_rows.append(evaluate_samples(dataset_name, "kde", test, kde_samples, seed, kde_nll, train_time, kde_info))
+            hidden_rows.append(evaluate_samples(dataset_name, "kde", hidden, kde_samples, seed, kde_hidden_nll, train_time, kde_info))
             if seed == config.seeds[0]:
                 all_samples[(dataset_name, "kde")] = kde_samples
                 meta[dataset_name]["kde"] = kde_info
@@ -963,7 +1007,10 @@ def main() -> None:
             gmm, gmm_info = choose_gmm(train, seed)
             gmm_samples, _ = gmm.sample(config.n_generate)
             gmm_nll = -float(gmm.score(test))
-            all_rows.append(evaluate_samples(dataset_name, "gmm", test, gmm_samples, seed, gmm_nll, time.time() - start, gmm_info))
+            gmm_hidden_nll = -float(gmm.score(hidden))
+            train_time = time.time() - start
+            all_rows.append(evaluate_samples(dataset_name, "gmm", test, gmm_samples, seed, gmm_nll, train_time, gmm_info))
+            hidden_rows.append(evaluate_samples(dataset_name, "gmm", hidden, gmm_samples, seed, gmm_hidden_nll, train_time, gmm_info))
             if seed == config.seeds[0]:
                 all_samples[(dataset_name, "gmm")] = gmm_samples
                 meta[dataset_name]["gmm"] = gmm_info
@@ -971,7 +1018,9 @@ def main() -> None:
             start = time.time()
             vae, vae_info = train_vae(train, seed, config.vae_epochs, config.device)
             vae_samples = vae.sample(config.n_generate, config.device)
-            all_rows.append(evaluate_samples(dataset_name, "vae", test, vae_samples, seed, None, time.time() - start, vae_info))
+            train_time = time.time() - start
+            all_rows.append(evaluate_samples(dataset_name, "vae", test, vae_samples, seed, None, train_time, vae_info))
+            hidden_rows.append(evaluate_samples(dataset_name, "vae", hidden, vae_samples, seed, None, train_time, vae_info))
             if seed == config.seeds[0]:
                 all_samples[(dataset_name, "vae")] = vae_samples
                 meta[dataset_name]["vae"] = vae_info
@@ -979,23 +1028,34 @@ def main() -> None:
             start = time.time()
             ddpm, ddpm_info = train_ddpm(train, seed, config.ddpm_epochs, config.ddpm_steps, config.device)
             ddpm_samples = sample_ddpm(ddpm, config.n_generate, config.ddpm_steps, seed + 99, config.device)
-            all_rows.append(evaluate_samples(dataset_name, "ddpm", test, ddpm_samples, seed, None, time.time() - start, ddpm_info))
+            train_time = time.time() - start
+            all_rows.append(evaluate_samples(dataset_name, "ddpm", test, ddpm_samples, seed, None, train_time, ddpm_info))
+            hidden_rows.append(evaluate_samples(dataset_name, "ddpm", hidden, ddpm_samples, seed, None, train_time, ddpm_info))
             if seed == config.seeds[0]:
                 all_samples[(dataset_name, "ddpm")] = ddpm_samples
                 meta[dataset_name]["ddpm"] = ddpm_info
 
     agg = aggregate(all_rows)
+    hidden_agg = aggregate(hidden_rows)
     write_csv(out_dir / "metrics_by_seed.csv", all_rows)
     write_csv(out_dir / "metrics_summary.csv", agg)
+    write_csv(out_dir / "hidden_metrics_by_seed.csv", hidden_rows)
+    write_csv(out_dir / "hidden_metrics_summary.csv", hidden_agg)
     save_json(out_dir / "metrics_by_seed.json", all_rows)
     save_json(out_dir / "metrics_summary.json", agg)
+    save_json(out_dir / "hidden_metrics_by_seed.json", hidden_rows)
+    save_json(out_dir / "hidden_metrics_summary.json", hidden_agg)
     save_json(out_dir / "model_metadata.json", meta)
     write_tex_tables(agg, out_dir)
+    write_hidden_table(hidden_agg, out_dir)
 
-    cond_rows, cond_samples = conditional_experiment(train_sets_by_seed, test_sets_by_seed, config, out_dir)
+    cond_rows, cond_hidden_rows, cond_samples = conditional_experiment(train_sets_by_seed, test_sets_by_seed, hidden_sets_by_seed, config, out_dir)
     cond_agg = aggregate_conditional(cond_rows)
+    cond_hidden_agg = aggregate_conditional(cond_hidden_rows)
     write_csv(out_dir / "conditional_metrics_summary.csv", cond_agg)
+    write_csv(out_dir / "conditional_hidden_metrics_summary.csv", cond_hidden_agg)
     write_conditional_table(cond_agg, out_dir)
+    write_conditional_table(cond_hidden_agg, out_dir, filename="conditional_hidden_results_table.tex")
 
     for (dataset, model), samples in all_samples.items():
         np.save(sample_dir / f"{dataset}_{model}_samples.npy", samples)
@@ -1022,7 +1082,7 @@ def main() -> None:
         "torch": torch.__version__,
         "matplotlib": matplotlib.__version__,
         "data_source": "distribution2d_gen/generate_data.py",
-        "notes": "Data generation matches the provided course generator. Each repeated run uses official_seed_base + 10 * seed for train and +1 for test.",
+        "notes": "Data generation matches the provided course generator. Each repeated run uses official_seed_base + 10 * seed for train, +1 for test, and +2 for hidden test.",
     }
     save_json(out_dir / "run_manifest.json", manifest)
 

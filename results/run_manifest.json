@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-06-10T15:27:38.287852+00:00",
+  "created_at": "2026-06-14T13:40:04.858117+00:00",
   "config": {
     "n_train": 2000,
     "n_test": 2000,
@@ -15,7 +15,7 @@
     "device": "cpu",
     "official_seed_base": 20260525
   },
-  "elapsed_sec": 178.07641696929932,
+  "elapsed_sec": 228.3801040649414,
   "python": "3.12.7",
   "platform": "macOS-15.3.1-arm64-arm-64bit",
   "numpy": "1.26.4",
@@ -24,5 +24,5 @@
   "torch": "2.5.1",
   "matplotlib": "3.9.2",
   "data_source": "distribution2d_gen/generate_data.py",
-  "notes": "Data generation matches the provided course generator. Each repeated run uses official_seed_base + 10 * seed for train and +1 for test."
+  "notes": "Data generation matches the provided course generator. Each repeated run uses official_seed_base + 10 * seed for train, +1 for test, and +2 for hidden test."
 }

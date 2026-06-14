@@ -3,13 +3,13 @@
     "dataset": "gaussian_mixture",
     "model": "conditional_ddpm",
     "seed": 0,
-    "mmd": 0.0013338327407836914,
-    "sliced_wasserstein": 0.09360165337598074,
-    "precision": 0.4355,
-    "coverage": 0.926,
-    "support_coverage": 0.8990384615384616,
+    "mmd": 0.0014895200729370117,
+    "sliced_wasserstein": 0.09642768905931103,
+    "precision": 0.433,
+    "coverage": 0.918,
+    "support_coverage": 0.8629441624365483,
     "nll": null,
-    "radius": 0.037496123119131086,
+    "radius": 0.03694282278765671,
     "train_time_sec": 2.9444961547851562,
     "model_info": {
       "epochs": 1875,
@@ -62,13 +62,13 @@
     "dataset": "ring",
     "model": "conditional_ddpm",
     "seed": 0,
-    "mmd": 0.0007091760635375977,
-    "sliced_wasserstein": 0.05161798041589881,
-    "precision": 0.927,
-    "coverage": 0.984,
-    "support_coverage": 0.8714285714285714,
+    "mmd": 0.001183629035949707,
+    "sliced_wasserstein": 0.06225531292822477,
+    "precision": 0.932,
+    "coverage": 0.981,
+    "support_coverage": 0.9016786570743405,
     "nll": null,
-    "radius": 0.06588186721942296,
+    "radius": 0.06759387161250598,
     "train_time_sec": 2.9444961547851562,
     "model_info": {
       "epochs": 1875,
@@ -121,249 +121,249 @@
     "dataset": "two_moons",
     "model": "conditional_ddpm",
     "seed": 0,
-    "mmd": 0.00029540061950683594,
-    "sliced_wasserstein": 0.053933045584263296,
-    "precision": 0.7375,
-    "coverage": 0.963,
-    "support_coverage": 0.8181818181818182,
-    "nll": null,
-    "radius": 0.08562849605627246,
-    "train_time_sec": 2.9444961547851562,
-    "model_info": {
-      "epochs": 1875,
-      "steps": 100,
-      "history": [
-        {
-          "epoch": 1,
-          "loss": 1.049319863319397
-        },
-        {
-          "epoch": 234,
-          "loss": 0.5850759148597717
-        },
-        {
-          "epoch": 468,
-          "loss": 0.6105940937995911
-        },
-        {
-          "epoch": 702,
-          "loss": 0.5514576435089111
-        },
-        {
-          "epoch": 936,
-          "loss": 0.5712104439735413
-        },
-        {
-          "epoch": 1170,
-          "loss": 0.5577126741409302
-        },
-        {
-          "epoch": 1404,
-          "loss": 0.6015276908874512
-        },
-        {
-          "epoch": 1638,
-          "loss": 0.5655041337013245
-        },
-        {
-          "epoch": 1872,
-          "loss": 0.5737572312355042
-        },
-        {
-          "epoch": 1875,
-          "loss": 0.5128362774848938
-        }
-      ]
-    }
-  },
-  {
-    "dataset": "spiral",
-    "model": "conditional_ddpm",
-    "seed": 0,
-    "mmd": 0.0026350021362304688,
-    "sliced_wasserstein": 0.09790364603758923,
-    "precision": 0.7115,
-    "coverage": 0.9485,
-    "support_coverage": 0.7675675675675676,
-    "nll": null,
-    "radius": 0.11184237889872026,
-    "train_time_sec": 2.9444961547851562,
-    "model_info": {
-      "epochs": 1875,
-      "steps": 100,
-      "history": [
-        {
-          "epoch": 1,
-          "loss": 1.049319863319397
-        },
-        {
-          "epoch": 234,
-          "loss": 0.5850759148597717
-        },
-        {
-          "epoch": 468,
-          "loss": 0.6105940937995911
-        },
-        {
-          "epoch": 702,
-          "loss": 0.5514576435089111
-        },
-        {
-          "epoch": 936,
-          "loss": 0.5712104439735413
-        },
-        {
-          "epoch": 1170,
-          "loss": 0.5577126741409302
-        },
-        {
-          "epoch": 1404,
-          "loss": 0.6015276908874512
-        },
-        {
-          "epoch": 1638,
-          "loss": 0.5655041337013245
-        },
-        {
-          "epoch": 1872,
-          "loss": 0.5737572312355042
-        },
-        {
-          "epoch": 1875,
-          "loss": 0.5128362774848938
-        }
-      ]
-    }
-  },
-  {
-    "dataset": "gaussian_mixture",
-    "model": "conditional_ddpm",
-    "seed": 1,
-    "mmd": 0.002020597457885742,
-    "sliced_wasserstein": 0.09355158422349119,
-    "precision": 0.5625,
-    "coverage": 0.951,
-    "support_coverage": 0.8942307692307693,
-    "nll": null,
-    "radius": 0.037414119619303535,
-    "train_time_sec": 2.7713968753814697,
-    "model_info": {
-      "epochs": 1875,
-      "steps": 100,
-      "history": [
-        {
-          "epoch": 1,
-          "loss": 1.084548830986023
-        },
-        {
-          "epoch": 234,
-          "loss": 0.5854440331459045
-        },
-        {
-          "epoch": 468,
-          "loss": 0.6378119587898254
-        },
-        {
-          "epoch": 702,
-          "loss": 0.5103613138198853
-        },
-        {
-          "epoch": 936,
-          "loss": 0.5882887840270996
-        },
-        {
-          "epoch": 1170,
-          "loss": 0.557080090045929
-        },
-        {
-          "epoch": 1404,
-          "loss": 0.5644064545631409
-        },
-        {
-          "epoch": 1638,
-          "loss": 0.5423388481140137
-        },
-        {
-          "epoch": 1872,
-          "loss": 0.5016663074493408
-        },
-        {
-          "epoch": 1875,
-          "loss": 0.5349653959274292
-        }
-      ]
-    }
-  },
-  {
-    "dataset": "ring",
-    "model": "conditional_ddpm",
-    "seed": 1,
-    "mmd": 0.002092123031616211,
-    "sliced_wasserstein": 0.08381552698849039,
-    "precision": 0.902,
-    "coverage": 0.9795,
-    "support_coverage": 0.8901869158878505,
-    "nll": null,
-    "radius": 0.0676422593133715,
-    "train_time_sec": 2.7713968753814697,
-    "model_info": {
-      "epochs": 1875,
-      "steps": 100,
-      "history": [
-        {
-          "epoch": 1,
-          "loss": 1.084548830986023
-        },
-        {
-          "epoch": 234,
-          "loss": 0.5854440331459045
-        },
-        {
-          "epoch": 468,
-          "loss": 0.6378119587898254
-        },
-        {
-          "epoch": 702,
-          "loss": 0.5103613138198853
-        },
-        {
-          "epoch": 936,
-          "loss": 0.5882887840270996
-        },
-        {
-          "epoch": 1170,
-          "loss": 0.557080090045929
-        },
-        {
-          "epoch": 1404,
-          "loss": 0.5644064545631409
-        },
-        {
-          "epoch": 1638,
-          "loss": 0.5423388481140137
-        },
-        {
-          "epoch": 1872,
-          "loss": 0.5016663074493408
-        },
-        {
-          "epoch": 1875,
-          "loss": 0.5349653959274292
-        }
-      ]
-    }
-  },
-  {
-    "dataset": "two_moons",
-    "model": "conditional_ddpm",
-    "seed": 1,
-    "mmd": 0.0036848783493041992,
-    "sliced_wasserstein": 0.11550601593593851,
-    "precision": 0.772,
+    "mmd": 0.0007274150848388672,
+    "sliced_wasserstein": 0.062293683322371486,
+    "precision": 0.754,
     "coverage": 0.9695,
-    "support_coverage": 0.8343434343434344,
+    "support_coverage": 0.8580375782881002,
     "nll": null,
-    "radius": 0.08499965517247654,
+    "radius": 0.08455863160388377,
+    "train_time_sec": 2.9444961547851562,
+    "model_info": {
+      "epochs": 1875,
+      "steps": 100,
+      "history": [
+        {
+          "epoch": 1,
+          "loss": 1.049319863319397
+        },
+        {
+          "epoch": 234,
+          "loss": 0.5850759148597717
+        },
+        {
+          "epoch": 468,
+          "loss": 0.6105940937995911
+        },
+        {
+          "epoch": 702,
+          "loss": 0.5514576435089111
+        },
+        {
+          "epoch": 936,
+          "loss": 0.5712104439735413
+        },
+        {
+          "epoch": 1170,
+          "loss": 0.5577126741409302
+        },
+        {
+          "epoch": 1404,
+          "loss": 0.6015276908874512
+        },
+        {
+          "epoch": 1638,
+          "loss": 0.5655041337013245
+        },
+        {
+          "epoch": 1872,
+          "loss": 0.5737572312355042
+        },
+        {
+          "epoch": 1875,
+          "loss": 0.5128362774848938
+        }
+      ]
+    }
+  },
+  {
+    "dataset": "spiral",
+    "model": "conditional_ddpm",
+    "seed": 0,
+    "mmd": 0.0016962289810180664,
+    "sliced_wasserstein": 0.08709497848226946,
+    "precision": 0.703,
+    "coverage": 0.9495,
+    "support_coverage": 0.7740805604203153,
+    "nll": null,
+    "radius": 0.11013366086125453,
+    "train_time_sec": 2.9444961547851562,
+    "model_info": {
+      "epochs": 1875,
+      "steps": 100,
+      "history": [
+        {
+          "epoch": 1,
+          "loss": 1.049319863319397
+        },
+        {
+          "epoch": 234,
+          "loss": 0.5850759148597717
+        },
+        {
+          "epoch": 468,
+          "loss": 0.6105940937995911
+        },
+        {
+          "epoch": 702,
+          "loss": 0.5514576435089111
+        },
+        {
+          "epoch": 936,
+          "loss": 0.5712104439735413
+        },
+        {
+          "epoch": 1170,
+          "loss": 0.5577126741409302
+        },
+        {
+          "epoch": 1404,
+          "loss": 0.6015276908874512
+        },
+        {
+          "epoch": 1638,
+          "loss": 0.5655041337013245
+        },
+        {
+          "epoch": 1872,
+          "loss": 0.5737572312355042
+        },
+        {
+          "epoch": 1875,
+          "loss": 0.5128362774848938
+        }
+      ]
+    }
+  },
+  {
+    "dataset": "gaussian_mixture",
+    "model": "conditional_ddpm",
+    "seed": 1,
+    "mmd": 0.0012575387954711914,
+    "sliced_wasserstein": 0.08214531151618543,
+    "precision": 0.553,
+    "coverage": 0.9425,
+    "support_coverage": 0.9082125603864735,
+    "nll": null,
+    "radius": 0.03624610840049088,
+    "train_time_sec": 2.7713968753814697,
+    "model_info": {
+      "epochs": 1875,
+      "steps": 100,
+      "history": [
+        {
+          "epoch": 1,
+          "loss": 1.084548830986023
+        },
+        {
+          "epoch": 234,
+          "loss": 0.5854440331459045
+        },
+        {
+          "epoch": 468,
+          "loss": 0.6378119587898254
+        },
+        {
+          "epoch": 702,
+          "loss": 0.5103613138198853
+        },
+        {
+          "epoch": 936,
+          "loss": 0.5882887840270996
+        },
+        {
+          "epoch": 1170,
+          "loss": 0.557080090045929
+        },
+        {
+          "epoch": 1404,
+          "loss": 0.5644064545631409
+        },
+        {
+          "epoch": 1638,
+          "loss": 0.5423388481140137
+        },
+        {
+          "epoch": 1872,
+          "loss": 0.5016663074493408
+        },
+        {
+          "epoch": 1875,
+          "loss": 0.5349653959274292
+        }
+      ]
+    }
+  },
+  {
+    "dataset": "ring",
+    "model": "conditional_ddpm",
+    "seed": 1,
+    "mmd": 0.0010647773742675781,
+    "sliced_wasserstein": 0.06457979802910363,
+    "precision": 0.907,
+    "coverage": 0.982,
+    "support_coverage": 0.8868360277136259,
+    "nll": null,
+    "radius": 0.06838027610608025,
+    "train_time_sec": 2.7713968753814697,
+    "model_info": {
+      "epochs": 1875,
+      "steps": 100,
+      "history": [
+        {
+          "epoch": 1,
+          "loss": 1.084548830986023
+        },
+        {
+          "epoch": 234,
+          "loss": 0.5854440331459045
+        },
+        {
+          "epoch": 468,
+          "loss": 0.6378119587898254
+        },
+        {
+          "epoch": 702,
+          "loss": 0.5103613138198853
+        },
+        {
+          "epoch": 936,
+          "loss": 0.5882887840270996
+        },
+        {
+          "epoch": 1170,
+          "loss": 0.557080090045929
+        },
+        {
+          "epoch": 1404,
+          "loss": 0.5644064545631409
+        },
+        {
+          "epoch": 1638,
+          "loss": 0.5423388481140137
+        },
+        {
+          "epoch": 1872,
+          "loss": 0.5016663074493408
+        },
+        {
+          "epoch": 1875,
+          "loss": 0.5349653959274292
+        }
+      ]
+    }
+  },
+  {
+    "dataset": "two_moons",
+    "model": "conditional_ddpm",
+    "seed": 1,
+    "mmd": 0.003183603286743164,
+    "sliced_wasserstein": 0.10991071931962659,
+    "precision": 0.774,
+    "coverage": 0.9685,
+    "support_coverage": 0.8272357723577236,
+    "nll": null,
+    "radius": 0.08661202589394333,
     "train_time_sec": 2.7713968753814697,
     "model_info": {
       "epochs": 1875,
@@ -416,13 +416,13 @@
     "dataset": "spiral",
     "model": "conditional_ddpm",
     "seed": 1,
-    "mmd": 0.00377810001373291,
-    "sliced_wasserstein": 0.11731962991447131,
-    "precision": 0.741,
-    "coverage": 0.9165,
-    "support_coverage": 0.6879432624113475,
+    "mmd": 0.002573847770690918,
+    "sliced_wasserstein": 0.10082228231823298,
+    "precision": 0.735,
+    "coverage": 0.922,
+    "support_coverage": 0.7127272727272728,
     "nll": null,
-    "radius": 0.11407122946202164,
+    "radius": 0.11441380515409107,
     "train_time_sec": 2.7713968753814697,
     "model_info": {
       "epochs": 1875,
@@ -475,13 +475,13 @@
     "dataset": "gaussian_mixture",
     "model": "conditional_ddpm",
     "seed": 2,
-    "mmd": 0.0025633573532104492,
-    "sliced_wasserstein": 0.09601716145397099,
-    "precision": 0.5435,
-    "coverage": 0.9455,
-    "support_coverage": 0.9246231155778895,
+    "mmd": 0.0013469457626342773,
+    "sliced_wasserstein": 0.08187188213837199,
+    "precision": 0.5455,
+    "coverage": 0.949,
+    "support_coverage": 0.9396984924623115,
     "nll": null,
-    "radius": 0.036569343975978025,
+    "radius": 0.03726296466430769,
     "train_time_sec": 2.2080259323120117,
     "model_info": {
       "epochs": 1875,
@@ -534,13 +534,13 @@
     "dataset": "ring",
     "model": "conditional_ddpm",
     "seed": 2,
-    "mmd": 0.004642605781555176,
-    "sliced_wasserstein": 0.12198854892797058,
-    "precision": 0.8965,
-    "coverage": 0.9785,
-    "support_coverage": 0.8832116788321168,
+    "mmd": 0.005068659782409668,
+    "sliced_wasserstein": 0.1308212363548631,
+    "precision": 0.921,
+    "coverage": 0.9865,
+    "support_coverage": 0.89749430523918,
     "nll": null,
-    "radius": 0.06766925267074059,
+    "radius": 0.06881861625481717,
     "train_time_sec": 2.2080259323120117,
     "model_info": {
       "epochs": 1875,
@@ -593,13 +593,13 @@
     "dataset": "two_moons",
     "model": "conditional_ddpm",
     "seed": 2,
-    "mmd": 0.0017790794372558594,
-    "sliced_wasserstein": 0.08283834495877268,
-    "precision": 0.7785,
-    "coverage": 0.965,
-    "support_coverage": 0.8477366255144033,
+    "mmd": 0.0017571449279785156,
+    "sliced_wasserstein": 0.08036481884467805,
+    "precision": 0.798,
+    "coverage": 0.9735,
+    "support_coverage": 0.8421052631578947,
     "nll": null,
-    "radius": 0.08216767525597113,
+    "radius": 0.0851053809113258,
     "train_time_sec": 2.2080259323120117,
     "model_info": {
       "epochs": 1875,
@@ -652,13 +652,13 @@
     "dataset": "spiral",
     "model": "conditional_ddpm",
     "seed": 2,
-    "mmd": 0.0028007030487060547,
-    "sliced_wasserstein": 0.1168259508370049,
-    "precision": 0.7355,
-    "coverage": 0.9475,
-    "support_coverage": 0.7627416520210897,
+    "mmd": 0.0041838884353637695,
+    "sliced_wasserstein": 0.13078757185796996,
+    "precision": 0.7215,
+    "coverage": 0.9415,
+    "support_coverage": 0.7406749555950266,
     "nll": null,
-    "radius": 0.115090431898868,
+    "radius": 0.11279471511644375,
     "train_time_sec": 2.2080259323120117,
     "model_info": {
       "epochs": 1875,

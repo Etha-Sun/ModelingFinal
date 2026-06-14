@@ -42,7 +42,7 @@
 \begin{abstract}
 本报告选择期末大作业的“二维分布生成建模”选题，研究不同生成模型在 Gaussian Mixture、Ring、Two Moons 和 Spiral 四类二维复杂分布上的建模能力。二维数据虽然维度低，但仍包含多峰、闭合支撑、弯曲流形和螺旋结构等难点，容易暴露模式遗漏、过平滑和离流形采样等问题。我们从数学建模角度将任务表述为学习未知分布 \(p_c(\mathbf{x})\) 并从中采样的问题，并比较核密度估计（KDE）、高斯混合模型（GMM）、变分自编码器（VAE）和去噪扩散概率模型（DDPM）四类方法。
 
-实验使用题目提供的 \texttt{distribution2d\_gen/generate\_data.py} 生成四类训练集和测试集，每类训练样本 2000 个、测试样本 2000 个，并在 3 个随机种子上重复训练与采样。评价指标包括负对数似然（NLL）、最大均值差异（MMD）、切片 Wasserstein 距离（SWD）、Precision、Coverage 和二维网格支撑覆盖率。结果显示，在官方二维生成器和当前样本量设置下，KDE 是最稳定的基线：它在四类分布上均取得最低 MMD、最低 SWD 和最高 Coverage；GMM 在 Gaussian Mixture、Ring 和 Two Moons 上具有较高 Precision 与较低 NLL，但在 Spiral 上受椭圆高斯局部假设限制；DDPM 在 Ring 和 Two Moons 上能生成大致形状，但在 Spiral 上仍明显偏散；VAE 训练稳定，但生成样本过于平滑。我们还完成了条件 DDPM、超参数扫描和四类模型的异常点鲁棒性实验。整体来看，在这个低维合成任务上，模型新旧不是最重要的，模型假设是否贴合数据形状更关键。
+实验使用题目提供的 \texttt{distribution2d\_gen/generate\_data.py} 生成四类训练集、测试集和隐藏测试集，每类训练样本 2000 个、测试样本 2000 个，并在 3 个随机种子上重复训练与采样。评价指标包括负对数似然（NLL）、最大均值差异（MMD）、切片 Wasserstein 距离（SWD）、Precision、Coverage 和二维网格支撑覆盖率。结果显示，在官方二维生成器和当前样本量设置下，KDE 是最稳定的基线：它在测试集和隐藏测试集上都取得了最好的整体样本匹配结果；GMM 在 Gaussian Mixture、Ring 和 Two Moons 上具有较高 Precision 与较低 NLL，但在 Spiral 上受椭圆高斯局部假设限制；DDPM 在 Ring 和 Two Moons 上能生成大致形状，但在 Spiral 上仍明显偏散；VAE 训练稳定，但生成样本过于平滑。我们还完成了条件 DDPM、超参数扫描和四类模型的异常点鲁棒性实验。整体来看，在这个低维合成任务上，模型新旧不是最重要的，模型假设是否贴合数据形状更关键。
 \end{abstract}
 
 \textbf{关键词：} 生成模型；二维分布；核密度估计；高斯混合模型；变分自编码器；扩散模型；MMD；Wasserstein 距离
@@ -102,7 +102,7 @@ DDPM 通过逐步加噪和逐步去噪学习生成过程\cite{sohl2015diffusion,
 
 \subsection{数据生成与预处理}
 
-数据来自题目提供的二维分布生成代码 \texttt{distribution2d\_gen/generate\_data.py}。官方脚本默认每类生成 2000 个训练样本、2000 个测试样本和 2000 个隐藏测试样本，并保存 \texttt{train.npy}、\texttt{test.npy}、标签文件和 \texttt{metadata.json}。主实验使用训练集拟合模型、测试集评价生成质量；为估计随机性，实验脚本复刻官方生成机制，并在不同随机种子下重新生成训练集和测试集。四类分布的构造如下：
+数据来自题目提供的二维分布生成代码 \texttt{distribution2d\_gen/generate\_data.py}。官方脚本默认每类生成 2000 个训练样本、2000 个测试样本和 2000 个隐藏测试样本，并保存 \texttt{train.npy}、\texttt{test.npy}、标签文件和 \texttt{metadata.json}。主实验使用训练集拟合模型、测试集评价生成质量，同时保留一份独立隐藏测试集作为泛化检查；为估计随机性，实验脚本复刻官方生成机制，并在不同随机种子下重新生成训练集、测试集和隐藏测试集。四类分布的构造如下：
 \begin{itemize}
     \item Gaussian Mixture：8 个等角度分布在半径 2.6 圆周上的高斯模式，噪声标准差为 0.16；
     \item Ring：半径约为 2.2 的闭合圆环，带径向噪声和小幅切向扰动；
@@ -277,10 +277,12 @@ DDPM & 100 扩散步，MLP 噪声网络 & AdamW, 2500 epochs & 隐式采样 \\
 运行后生成如下产物：
 \begin{itemize}
     \item \texttt{metrics\_by\_seed.csv/json}：逐数据集、逐模型、逐 seed 指标；
-    \item \texttt{metrics\_summary.csv/json}：均值和标准差；
+    \item \texttt{metrics\_summary.csv/json}：测试集指标的均值和标准差；
+    \item \texttt{hidden\_metrics\_summary.csv/json}：隐藏测试集指标的均值和标准差；
     \item \texttt{figures/*.pdf}：报告图表；
     \item \texttt{tables/*.tex}：可直接插入报告的表格；
-    \item \texttt{conditional\_metrics\_summary.csv}：条件 DDPM 指标；
+    \item \texttt{conditional\_metrics\_summary.csv}：条件 DDPM 测试集指标；
+    \item \texttt{conditional\_hidden\_metrics\_summary.csv}：条件 DDPM 隐藏测试集指标；
     \item \texttt{robustness.csv}：异常点鲁棒性实验指标；
     \item \texttt{run\_manifest.json}：运行环境、随机种子、训练轮数和依赖版本。
 \end{itemize}
@@ -317,6 +319,16 @@ DDPM & 100 扩散步，MLP 噪声网络 & AdamW, 2500 epochs & 隐式采样 \\
 
 表 \ref{tab:main} 和表 \ref{tab:best} 给出定量结果。Gaussian Mixture 上，KDE 的 MMD 为 \(0.0004\pm0.0002\)，略低于 GMM；但 GMM 的 NLL 更低、Precision 更高，对测试点赋予更高似然。Ring 上，KDE 的 MMD、SWD 和 Coverage 均为最优，Coverage 达到 \(0.988\pm0.005\)，合适带宽的局部核函数可以保持闭合支撑。Two Moons 上，KDE 仍取得最低 MMD 与 SWD，GMM 依靠多个局部高斯获得最高 Precision。Spiral 上，KDE 的 MMD 为 \(0.0006\pm0.0004\)，低于 GMM 和 DDPM；DDPM 与 GMM 的 MMD 接近，但 Precision 只有 \(0.725\pm0.016\)，它在整体距离上接近 GMM，但生成点仍有不少落在螺旋支撑之外。
 
+\begin{table}[H]
+\centering
+\scriptsize
+\caption{四类模型在隐藏测试集上的主指标，均为 3 个随机种子的均值 \(\pm\) 标准差。NLL 只对 KDE 和 GMM 报告。}
+\resizebox{\textwidth}{!}{\input{../results/tables/hidden_results_table.tex}}
+\label{tab:hidden}
+\end{table}
+
+表 \ref{tab:hidden} 使用未参与训练、调参和主结果讨论的隐藏测试集做补充检查。hidden split 上的排序与测试集基本一致：KDE 在四类分布上仍取得最低 MMD 和 SWD，并保持最高 Coverage；GMM 在 Gaussian Mixture、Ring 和 Two Moons 上的 NLL 与 Precision 仍较好；VAE 的过平滑问题没有消失；DDPM 在 Ring 和 Two Moons 上接近真实形状，但 Spiral 上 Precision 仍偏低。因此，主结论不是由某一次测试集抽样偶然造成的。
+
 \subsection{指标热力图}
 
 \begin{figure}[H]
@@ -350,7 +362,14 @@ p_\theta(\mathbf{x}\mid c),\quad c\in\{\text{Gaussian Mixture},\text{Ring},\text
 \label{tab:conditional}
 \end{table}
 
-图 \ref{fig:conditional} 和表 \ref{tab:conditional} 可以看出，类别标签确实起到了控制作用，但质量并不均衡。Ring 较清楚，Two Moons 能看出月牙轮廓；Gaussian Mixture 被拉成近似环状，Spiral 仍偏散。与单独训练的 DDPM 相比，条件 DDPM 在 Gaussian Mixture、Ring 和 Spiral 上的 MMD 更高，多分布共享参数带来了干扰。
+\begin{table}[H]
+\centering
+\caption{条件 DDPM 在隐藏测试集上的生成质量，均为 3 个随机种子的均值 \(\pm\) 标准差。}
+\input{../results/tables/conditional_hidden_results_table.tex}
+\label{tab:conditional-hidden}
+\end{table}
+
+图 \ref{fig:conditional}、表 \ref{tab:conditional} 和表 \ref{tab:conditional-hidden} 可以看出，类别标签确实起到了控制作用，但质量并不均衡。Ring 较清楚，Two Moons 能看出月牙轮廓；Gaussian Mixture 被拉成近似环状，Spiral 仍偏散。与单独训练的 DDPM 相比，条件 DDPM 在 Gaussian Mixture、Ring 和 Spiral 上的 MMD 更高。隐藏测试集上，Gaussian Mixture 的 Precision 只有 \(0.510\pm0.055\)，Spiral 的 MMD 为 \(0.0028\pm0.0010\)，说明多分布共享参数确实带来了干扰。
 
 \templsection{8}{八、超参数与鲁棒性分析}
 
@@ -404,7 +423,7 @@ DDPM 长训练后可以生成 Ring 和 Two Moons 的大致结构，但 Spiral �
 
 我们完成了二维分布生成建模实验，并比较了 KDE、GMM、VAE 和 DDPM 四类模型。主要结论如下：
 \begin{enumerate}
-    \item 在给定的二维生成器和每类 2000 个训练样本设置下，KDE 是最稳定的基线，在四类分布上均取得最低 MMD、最低 SWD 和最高 Coverage；
+    \item 在给定的二维生成器和每类 2000 个训练样本设置下，KDE 是最稳定的基线，在测试集和隐藏测试集上都取得最低 MMD、最低 SWD 和最高 Coverage；
     \item Gaussian Mixture 上 GMM 的 NLL 和 Precision 最好，但 KDE 的样本分布距离更低，说明密度拟合和样本匹配并不完全等价；
     \item Ring 和 Two Moons 上 KDE 表现最好，说明局部核平滑能自然保持闭合或弯曲支撑；
     \item Spiral 上 KDE 仍取得最低 MMD，GMM 与 DDPM 接近但 Precision 较低，说明长曲线支撑对局部贴合要求更高；
@@ -445,7 +464,9 @@ python src/run_experiments.py \
 \texttt{src/run\_experiments.py} & 数据生成、模型训练、评价与绘图脚本 \\
 \texttt{results/metrics\_summary.csv} & 聚合指标表 \\
 \texttt{results/metrics\_by\_seed.json} & 逐 seed 完整指标 \\
-\texttt{results/conditional\_metrics\_summary.csv} & 条件 DDPM 聚合指标 \\
+\texttt{results/hidden\_metrics\_summary.csv} & 隐藏测试集聚合指标 \\
+\texttt{conditional\_metrics\_summary.csv} & 条件 DDPM 测试集聚合指标，位于 \texttt{results/} 目录 \\
+\texttt{conditional\_hidden\_metrics\_summary.csv} & 条件 DDPM 隐藏测试集聚合指标，位于 \texttt{results/} 目录 \\
 \texttt{results/robustness.csv} & 多模型异常点鲁棒性指标 \\
 \texttt{results/figures/} & 报告使用的 PDF/PNG 图像 \\
 \texttt{results/tables/} & LaTeX 表格片段 \\
@@ -464,7 +485,7 @@ python src/run_experiments.py \
 
 \subsection{AI 使用说明}
 
-AI 工具用于辅助整理报告结构、检查文字表达和排版细节。实验数据、指标数值和图像均由本地脚本运行生成，没有手工编造。最终结论根据 \texttt{metrics\_summary.csv}、图像文件和运行清单核对后写入报告。
+AI 工具用于辅助整理报告结构、检查文字表达和排版细节。实验数据、指标数值和图像均由本地脚本运行生成，没有手工编造。最终结论根据主指标表、隐藏测试集指标表、图像文件和运行清单核对后写入报告。
 
 \begin{enumerate}
     \item AI 帮助整理了数学建模报告的章节结构和 \LaTeX{} 排版；
