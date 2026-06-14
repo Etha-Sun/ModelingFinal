@@ -42,7 +42,7 @@
 \begin{abstract}
 本报告选择期末大作业的“二维分布生成建模”选题，研究不同生成模型在 Gaussian Mixture、Ring、Two Moons 和 Spiral 四类二维复杂分布上的建模能力。二维数据虽然维度低，但具有多峰性、闭合支撑、弯曲流形和螺旋结构等典型难点，能够直接暴露生成模型的模式覆盖、过平滑、离流形采样和评价指标不一致等问题。本文从数学建模角度将任务表述为学习未知分布 \(p_c(\mathbf{x})\) 并生成新样本的问题，比较核密度估计（KDE）、高斯混合模型（GMM）、变分自编码器（VAE）和去噪扩散概率模型（DDPM）四类方法。
 
-实验使用题目提供的 \texttt{distribution2d\_gen/generate\_data.py} 生成四类训练集和测试集，每类训练样本 2000 个、测试样本 2000 个，并在 3 个随机种子上重复训练与采样。评价指标包括负对数似然（NLL）、最大均值差异（MMD）、切片 Wasserstein 距离（SWD）、Precision、Coverage 和二维网格支撑覆盖率。结果表明，在官方二维生成器和当前样本量设置下，KDE 是最强的整体基线：它在四类分布上均取得最低 MMD、最低 SWD 和最高 Coverage；GMM 在 Gaussian Mixture、Ring 和 Two Moons 上具有较高 Precision 与较低 NLL，但在 Spiral 上受椭圆高斯局部假设限制；DDPM 能生成可辨认的弯曲结构，但没有在主指标上压过 KDE；VAE 训练稳定但明显过平滑。本文进一步完成条件 DDPM、超参数扫描和四类模型的异常点鲁棒性实验，说明生成建模不能只依赖单一“先进模型”，而应结合数据几何结构、模型假设和多指标评价进行判断。
+实验使用题目提供的 \texttt{distribution2d\_gen/generate\_data.py} 生成四类训练集和测试集，每类训练样本 2000 个、测试样本 2000 个，并在 3 个随机种子上重复训练与采样。评价指标包括负对数似然（NLL）、最大均值差异（MMD）、切片 Wasserstein 距离（SWD）、Precision、Coverage 和二维网格支撑覆盖率。结果表明，在二维生成器和当前样本量设置下，KDE 是最强的整体基线：它在四类分布上均取得最低 MMD、最低 SWD 和最高 Coverage；GMM 在 Gaussian Mixture、Ring 和 Two Moons 上具有较高 Precision 与较低 NLL，但在 Spiral 上受椭圆高斯局部假设限制；DDPM 能生成可辨认的弯曲结构，但没有在主指标上压过 KDE；VAE 训练稳定但明显过平滑。本文进一步完成条件 DDPM、超参数扫描和四类模型的异常点鲁棒性实验，说明生成建模不能只依赖单一“先进模型”，而应结合数据几何结构、模型假设和多指标评价进行判断。
 \end{abstract}
 
 \textbf{关键词：} 生成模型；二维分布；核密度估计；高斯混合模型；变分自编码器；扩散模型；MMD；Wasserstein 距离
@@ -102,7 +102,7 @@ DDPM 通过逐步加噪和逐步去噪学习生成过程\cite{sohl2015diffusion,
 
 \subsection{数据生成与预处理}
 
-本文使用题目提供的二维分布生成代码 \texttt{distribution2d\_gen/generate\_data.py} 作为数据来源。官方脚本默认每类生成 2000 个训练样本、2000 个测试样本和 2000 个隐藏测试样本，并保存 \texttt{train.npy}、\texttt{test.npy}、标签文件和 \texttt{metadata.json}。主实验使用训练集拟合模型、测试集评价生成质量；为估计随机性，实验管线保持官方生成机制不变，仅改变随机种子重复 3 次。四类分布的构造如下：
+本文使用题目提供的二维分布生成代码 \texttt{distribution2d\_gen/generate\_data.py} 作为数据来源。数据生成程序默认每类生成 2000 个训练样本、2000 个测试样本和 2000 个隐藏测试样本，并保存 \texttt{train.npy}、\texttt{test.npy}、标签文件和 \texttt{metadata.json}。主实验使用训练集拟合模型、测试集评价生成质量；为估计随机性，实验管线保持生成机制不变，仅改变随机种子重复 3 次。四类分布的构造如下：
 \begin{itemize}
     \item Gaussian Mixture：8 个等角度分布在半径 2.6 圆周上的高斯模式，噪声标准差为 0.16；
     \item Ring：半径约为 2.2 的闭合圆环，带径向噪声和小幅切向扰动；
@@ -326,7 +326,7 @@ DDPM & 100 扩散步，MLP 噪声网络 & AdamW, 2500 epochs & 隐式采样 \\
 \label{fig:heatmap}
 \end{figure}
 
-图 \ref{fig:heatmap} 说明，在官方二维数据和 2000 个训练样本设置下，KDE 的 MMD 排名最稳定。这并不代表 KDE 在所有生成任务中都优于神经模型，而是说明低维、样本充分、评价分布与训练分布同机制时，直接利用样本邻域的非参数估计效果很强。这个结果进一步论证了本文的核心观点：生成建模不能简单按模型新旧排序，而要分析数据维度、样本量、支撑几何和评价指标。
+图 \ref{fig:heatmap} 说明，在生成的二维数据和 2000 个训练样本设置下，KDE 的 MMD 排名最稳定。这并不代表 KDE 在所有生成任务中都优于神经模型，而是说明低维、样本充分、评价分布与训练分布同机制时，直接利用样本邻域的非参数估计效果很强。这个结果进一步论证了本文的核心观点：生成建模不能简单按模型新旧排序，而要分析数据维度、样本量、支撑几何和评价指标。
 
 \subsection{条件生成实验}
 
@@ -413,7 +413,7 @@ DDPM 长训练后可以生成可辨认的 Ring、Two Moons 和 Spiral 结构，�
     \item 多个评价指标会给出不同侧面的结论，因此生成模型评价必须结合可视化、MMD/SWD、Precision/Coverage、支撑覆盖率和 NLL。
 \end{enumerate}
 
-对于改进方向，可以考虑加入 RealNVP 或 Neural Spline Flow 作为精确似然神经模型。这样可以在保持神经模型表达能力的同时，对 NLL 做更公平的横向比较，也能检验神经生成模型是否能在二维官方数据上同时取得好样本距离和好似然。
+对于改进方向，可以考虑加入 RealNVP 或 Neural Spline Flow 作为精确似然神经模型。这样可以在保持神经模型表达能力的同时，对 NLL 做更公平的横向比较，也能检验神经生成模型是否能在生成的二维数据上同时取得好样本距离和好似然。
 
 \clearpage
 \templsection{11}{十一、复现实验、分工与 AI 使用说明}
@@ -441,14 +441,14 @@ python final_project/src/run_experiments.py \
 文件或目录 & 说明 \\
 \midrule
 \texttt{distribution2d\_gen/generate\_data.py} & 题目提供的二维分布数据生成代码 \\
-\texttt{data/} & 官方生成器默认 seed 生成的 train/test/hidden 数据文件 \\
+\texttt{data/} & 数据生成器默认 seed 生成的 train/test/hidden 数据文件 \\
 \texttt{src/run\_experiments.py} & 数据生成、模型训练、评价与绘图脚本 \\
 \texttt{results/metrics\_summary.csv} & 聚合指标表 \\
 \texttt{results/metrics\_by\_seed.json} & 逐 seed 完整指标 \\
 \texttt{results/conditional\_metrics\_summary.csv} & 条件 DDPM 聚合指标 \\
 \texttt{results/robustness.csv} & 多模型异常点鲁棒性指标 \\
 \texttt{results/figures/} & 报告使用的 PDF/PNG 图像 \\
-\texttt{results/tables/} & LaTeX 表格片段 \\
+\texttt{results/tables/} & \LaTeX{} 表格片段 \\
 \texttt{report/main.tex} & 本报告源码 \\
 \texttt{report/main.pdf} & 编译后的报告 PDF \\
 \bottomrule
@@ -468,7 +468,7 @@ AI 工具用于辅助规划报告结构、整理实验代码、检查叙事逻�
 
 \begin{enumerate}
     \item AI根据数学建模标准报告模板给出本文的标准\LaTeX{} 报告结构和章节标题；
-    \item AI辅助书写了问题提出实验方法等部分的文本内容，提供了数学公式和实验设计细节；
+    \item AI辅助书写了问题提出实验方法等部分的文本内容；
     \item AI帮助整理了实验结果的表格和图像说明，并在报告中标注了各个文件的说明；
     \item AI根据已有的代码进行了重新排版和变量命名，增强了代码的可读性。
 \end{enumerate}
